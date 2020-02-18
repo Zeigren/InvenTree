@@ -1,25 +1,25 @@
-from django.test import TestCase
 import django.core.exceptions as django_exceptions
+from django.test import TestCase
 
-from .models import Part, BomItem
+from .models import BomItem, Part
 
 
 class BomItemTest(TestCase):
 
     fixtures = [
-        'category',
-        'part',
-        'location',
-        'bom',
+        "category",
+        "part",
+        "location",
+        "bom",
     ]
 
     def setUp(self):
         self.bob = Part.objects.get(id=100)
-        self.orphan = Part.objects.get(name='Orphan')
+        self.orphan = Part.objects.get(name="Orphan")
 
     def test_str(self):
         b = BomItem.objects.get(id=1)
-        self.assertEqual(str(b), '10 x M2x4 LPHS to make BOB | Bob | A2')
+        self.assertEqual(str(b), "10 x M2x4 LPHS to make BOB | Bob | A2")
 
     def test_has_bom(self):
         self.assertFalse(self.orphan.has_bom)

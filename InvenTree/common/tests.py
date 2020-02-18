@@ -10,7 +10,7 @@ class CurrencyTest(TestCase):
     """ Tests for Currency model """
 
     fixtures = [
-        'currency',
+        "currency",
     ]
 
     def test_currency(self):

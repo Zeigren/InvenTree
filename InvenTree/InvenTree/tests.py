@@ -1,13 +1,12 @@
-from django.test import TestCase
 import django.core.exceptions as django_exceptions
 from django.core.exceptions import ValidationError
-
-from .validators import validate_overage, validate_part_name
-from . import helpers
+from django.test import TestCase
 
 from mptt.exceptions import InvalidMove
-
 from stock.models import StockLocation
+
+from . import helpers
+from .validators import validate_overage, validate_part_name
 
 
 class ValidatorTest(TestCase):
@@ -17,10 +16,10 @@ class ValidatorTest(TestCase):
     def test_part_name(self):
         """ Test part name validator """
 
-        validate_part_name('hello world')
+        validate_part_name("hello world")
 
         with self.assertRaises(django_exceptions.ValidationError):
-            validate_part_name('This | name is not } valid')
+            validate_part_name("This | name is not } valid")
 
     def test_overage(self):
         """ Test overage validator """
@@ -51,24 +50,24 @@ class TestHelpers(TestCase):
     def test_image_url(self):
         """ Test if a filename looks like an image """
 
-        for name in ['ape.png', 'bat.GiF', 'apple.WeBP', 'BiTMap.Bmp']:
+        for name in ["ape.png", "bat.GiF", "apple.WeBP", "BiTMap.Bmp"]:
             self.assertTrue(helpers.TestIfImageURL(name))
 
-        for name in ['no.doc', 'nah.pdf', 'whatpng']:
+        for name in ["no.doc", "nah.pdf", "whatpng"]:
             self.assertFalse(helpers.TestIfImageURL(name))
 
     def test_str2bool(self):
         """ Test string to boolean conversion """
 
-        for s in ['yes', 'Y', 'ok', '1', 'OK', 'Ok', 'tRuE', 'oN']:
+        for s in ["yes", "Y", "ok", "1", "OK", "Ok", "tRuE", "oN"]:
             self.assertTrue(helpers.str2bool(s))
             self.assertFalse(helpers.str2bool(s, test=False))
 
-        for s in ['nO', '0', 'none', 'noNE', None, False, 'falSe', 'off']:
+        for s in ["nO", "0", "none", "noNE", None, False, "falSe", "off"]:
             self.assertFalse(helpers.str2bool(s))
             self.assertTrue(helpers.str2bool(s, test=False))
 
-        for s in ['wombat', '', 'xxxx']:
+        for s in ["wombat", "", "xxxx"]:
             self.assertFalse(helpers.str2bool(s))
             self.assertFalse(helpers.str2bool(s, test=False))
 
@@ -78,7 +77,7 @@ class TestQuoteWrap(TestCase):
 
     def test_single(self):
 
-        self.assertEqual(helpers.WrapWithQuotes('hello'), '"hello"')
+        self.assertEqual(helpers.WrapWithQuotes("hello"), '"hello"')
         self.assertEqual(helpers.WrapWithQuotes('hello"'), '"hello"')
 
 
@@ -87,21 +86,16 @@ class TestMakeBarcode(TestCase):
 
     def test_barcode(self):
 
-        data = {
-            'animal': 'cat',
-            'legs': 3,
-            'noise': 'purr'
-        }
+        data = {"animal": "cat", "legs": 3, "noise": "purr"}
 
         bc = helpers.MakeBarcode("part", 3, "www.google.com", data)
 
-        self.assertIn('animal', bc)
-        self.assertIn('tool', bc)
+        self.assertIn("animal", bc)
+        self.assertIn("tool", bc)
         self.assertIn('"tool": "InvenTree"', bc)
 
 
 class TestDownloadFile(TestCase):
-
     def test_download(self):
         helpers.DownloadFile("hello world", "out.txt")
         helpers.DownloadFile(bytes("hello world".encode("utf8")), "out.bin")
@@ -111,7 +105,7 @@ class TestMPTT(TestCase):
     """ Tests for the MPTT tree models """
 
     fixtures = [
-        'location',
+        "location",
     ]
 
     def setUp(self):
@@ -135,25 +129,25 @@ class TestMPTT(TestCase):
         child = StockLocation.objects.get(pk=5)
 
         parent.parent = child
-        
+
         with self.assertRaises(InvalidMove):
             parent.save()
 
     def test_move(self):
         """ Move an item to a different tree """
 
-        drawer = StockLocation.objects.get(name='Drawer_1')
+        drawer = StockLocation.objects.get(name="Drawer_1")
 
         # Record the tree ID
         tree = drawer.tree_id
 
-        home = StockLocation.objects.get(name='Home')
+        home = StockLocation.objects.get(name="Home")
 
         drawer.parent = home
         drawer.save()
 
         self.assertNotEqual(tree, drawer.tree_id)
-        
+
 
 class TestSerialNumberExtraction(TestCase):
     """ Tests for serial number extraction code """

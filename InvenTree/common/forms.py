@@ -15,10 +15,4 @@ class CurrencyEditForm(HelperForm):
 
     class Meta:
         model = Currency
-        fields = [
-            'symbol',
-            'suffix',
-            'description',
-            'value',
-            'base'
-        ]
+        fields = ["symbol", "suffix", "description", "value", "base"]

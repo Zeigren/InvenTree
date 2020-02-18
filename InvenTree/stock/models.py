@@ -6,29 +6,26 @@ Stock database model definitions
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
-from django.utils.translation import gettext_lazy as _
-from django.core.exceptions import ValidationError
-from django.urls import reverse
+from datetime import datetime
+from decimal import Decimal, InvalidOperation
 
-from django.db import models, transaction
-from django.core.validators import MinValueValidator
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator
+from django.db import models, transaction
 from django.db.models.signals import pre_delete
 from django.dispatch import receiver
+from django.urls import reverse
+from django.utils.translation import gettext_lazy as _
 
 from markdownx.models import MarkdownxField
-
 from mptt.models import MPTTModel, TreeForeignKey
-
-from decimal import Decimal, InvalidOperation
-from datetime import datetime
-from InvenTree import helpers
-
-from InvenTree.status_codes import StockStatus
-from InvenTree.models import InvenTreeTree
-from InvenTree.fields import InvenTreeURLField
-
 from part.models import Part
+
+from InvenTree import helpers
+from InvenTree.fields import InvenTreeURLField
+from InvenTree.models import InvenTreeTree
+from InvenTree.status_codes import StockStatus
 
 
 class StockLocation(InvenTreeTree):
@@ -38,18 +35,16 @@ class StockLocation(InvenTreeTree):
     """
 
     def get_absolute_url(self):
-        return reverse('stock-location-detail', kwargs={'pk': self.id})
+        return reverse("stock-location-detail", kwargs={"pk": self.id})
 
     def format_barcode(self):
         """ Return a JSON string for formatting a barcode for this StockLocation object """
 
         return helpers.MakeBarcode(
-            'StockLocation',
+            "StockLocation",
             self.id,
-            reverse('api-location-detail', kwargs={'pk': self.id}),
-            {
-                'name': self.name,
-            }
+            reverse("api-location-detail", kwargs={"pk": self.id}),
+            {"name": self.name,},
         )
 
     def get_stock_items(self, cascade=True):
@@ -60,7 +55,9 @@ class StockLocation(InvenTreeTree):
         """
 
         if cascade:
-            query = StockItem.objects.filter(location__in=self.getUniqueChildren(include_self=True))
+            query = StockItem.objects.filter(
+                location__in=self.getUniqueChildren(include_self=True)
+            )
         else:
             query = StockItem.objects.filter(location=self.pk)
 
@@ -88,7 +85,7 @@ class StockLocation(InvenTreeTree):
         return self.stock_item_count()
 
 
-@receiver(pre_delete, sender=StockLocation, dispatch_uid='stocklocation_delete_log')
+@receiver(pre_delete, sender=StockLocation, dispatch_uid="stocklocation_delete_log")
 def before_delete_stock_location(sender, instance, using, **kwargs):
 
     # Update each part in the stock location
@@ -133,19 +130,19 @@ class StockItem(MPTTModel):
         else:
             add_note = False
 
-        user = kwargs.pop('user', None)
-        
-        add_note = add_note and kwargs.pop('note', True)
+        user = kwargs.pop("user", None)
+
+        add_note = add_note and kwargs.pop("note", True)
 
         super(StockItem, self).save(*args, **kwargs)
 
         if add_note:
             # This StockItem is being saved for the first time
             self.addTransactionNote(
-                'Created stock item',
+                "Created stock item",
                 user,
                 notes="Created new stock item for part '{p}'".format(p=str(self.part)),
-                system=True
+                system=True,
             )
 
     @property
@@ -200,15 +197,35 @@ class StockItem(MPTTModel):
             if self.serial is not None:
                 # This is a variant part (check S/N across all sibling variants)
                 if self.part.variant_of is not None:
-                    if StockItem.objects.filter(part__variant_of=self.part.variant_of, serial=self.serial).exclude(id=self.id).exists():
-                        raise ValidationError({
-                            'serial': _('A stock item with this serial number already exists for template part {part}'.format(part=self.part.variant_of))
-                        })
+                    if (
+                        StockItem.objects.filter(
+                            part__variant_of=self.part.variant_of, serial=self.serial
+                        )
+                        .exclude(id=self.id)
+                        .exists()
+                    ):
+                        raise ValidationError(
+                            {
+                                "serial": _(
+                                    "A stock item with this serial number already exists for template part {part}".format(
+                                        part=self.part.variant_of
+                                    )
+                                )
+                            }
+                        )
                 else:
-                    if StockItem.objects.filter(part=self.part, serial=self.serial).exclude(id=self.id).exists():
-                        raise ValidationError({
-                            'serial': _('A stock item with this serial number already exists')
-                        })
+                    if (
+                        StockItem.objects.filter(part=self.part, serial=self.serial)
+                        .exclude(id=self.id)
+                        .exists()
+                    ):
+                        raise ValidationError(
+                            {
+                                "serial": _(
+                                    "A stock item with this serial number already exists"
+                                )
+                            }
+                        )
         except Part.DoesNotExist:
             pass
 
@@ -226,34 +243,49 @@ class StockItem(MPTTModel):
         try:
             if self.supplier_part is not None:
                 if not self.supplier_part.part == self.part:
-                    raise ValidationError({'supplier_part': _("Part type ('{pf}') must be {pe}").format(
-                                           pf=str(self.supplier_part.part),
-                                           pe=str(self.part))
-                                           })
+                    raise ValidationError(
+                        {
+                            "supplier_part": _(
+                                "Part type ('{pf}') must be {pe}"
+                            ).format(pf=str(self.supplier_part.part), pe=str(self.part))
+                        }
+                    )
 
             if self.part is not None:
                 # A part with a serial number MUST have the quantity set to 1
                 if self.serial is not None:
                     if self.quantity > 1:
-                        raise ValidationError({
-                            'quantity': _('Quantity must be 1 for item with a serial number'),
-                            'serial': _('Serial number cannot be set if quantity greater than 1')
-                        })
+                        raise ValidationError(
+                            {
+                                "quantity": _(
+                                    "Quantity must be 1 for item with a serial number"
+                                ),
+                                "serial": _(
+                                    "Serial number cannot be set if quantity greater than 1"
+                                ),
+                            }
+                        )
 
                     if self.quantity == 0:
                         self.quantity = 1
 
                     elif self.quantity > 1:
-                        raise ValidationError({
-                            'quantity': _('Quantity must be 1 for item with a serial number')
-                        })
+                        raise ValidationError(
+                            {
+                                "quantity": _(
+                                    "Quantity must be 1 for item with a serial number"
+                                )
+                            }
+                        )
 
                     # Serial numbered items cannot be deleted on depletion
                     self.delete_on_deplete = False
 
                 # A template part cannot be instantiated as a StockItem
                 if self.part.is_template:
-                    raise ValidationError({'part': _('Stock item cannot be created for a template Part')})
+                    raise ValidationError(
+                        {"part": _("Stock item cannot be created for a template Part")}
+                    )
 
         except Part.DoesNotExist:
             # This gets thrown if self.supplier_part is null
@@ -261,19 +293,17 @@ class StockItem(MPTTModel):
             pass
 
         if self.belongs_to and self.belongs_to.pk == self.pk:
-            raise ValidationError({
-                'belongs_to': _('Item cannot belong to itself')
-            })
+            raise ValidationError({"belongs_to": _("Item cannot belong to itself")})
 
     def get_absolute_url(self):
-        return reverse('stock-item-detail', kwargs={'pk': self.id})
+        return reverse("stock-item-detail", kwargs={"pk": self.id})
 
     def get_part_name(self):
         return self.part.full_name
 
     class Meta:
         unique_together = [
-            ('part', 'serial'),
+            ("part", "serial"),
         ]
 
     def format_barcode(self):
@@ -288,85 +318,124 @@ class StockItem(MPTTModel):
         """
 
         return helpers.MakeBarcode(
-            'StockItem',
+            "StockItem",
             self.id,
-            reverse('api-stock-detail', kwargs={'pk': self.id}),
-            {
-                'part_id': self.part.id,
-                'part_name': self.part.full_name
-            }
+            reverse("api-stock-detail", kwargs={"pk": self.id}),
+            {"part_id": self.part.id, "part_name": self.part.full_name},
         )
 
-    parent = TreeForeignKey('self',
-                            on_delete=models.DO_NOTHING,
-                            blank=True, null=True,
-                            related_name='children')
+    parent = TreeForeignKey(
+        "self",
+        on_delete=models.DO_NOTHING,
+        blank=True,
+        null=True,
+        related_name="children",
+    )
 
-    part = models.ForeignKey('part.Part', on_delete=models.CASCADE,
-                             related_name='stock_items', help_text=_('Base part'),
-                             limit_choices_to={
-                                 'is_template': False,
-                                 'active': True,
-                             })
+    part = models.ForeignKey(
+        "part.Part",
+        on_delete=models.CASCADE,
+        related_name="stock_items",
+        help_text=_("Base part"),
+        limit_choices_to={"is_template": False, "active": True,},
+    )
 
-    supplier_part = models.ForeignKey('company.SupplierPart', blank=True, null=True, on_delete=models.SET_NULL,
-                                      help_text=_('Select a matching supplier part for this stock item'))
+    supplier_part = models.ForeignKey(
+        "company.SupplierPart",
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+        help_text=_("Select a matching supplier part for this stock item"),
+    )
 
-    location = TreeForeignKey(StockLocation, on_delete=models.DO_NOTHING,
-                              related_name='stock_items', blank=True, null=True,
-                              help_text=_('Where is this stock item located?'))
+    location = TreeForeignKey(
+        StockLocation,
+        on_delete=models.DO_NOTHING,
+        related_name="stock_items",
+        blank=True,
+        null=True,
+        help_text=_("Where is this stock item located?"),
+    )
 
-    belongs_to = models.ForeignKey('self', on_delete=models.DO_NOTHING,
-                                   related_name='owned_parts', blank=True, null=True,
-                                   help_text=_('Is this item installed in another item?'))
+    belongs_to = models.ForeignKey(
+        "self",
+        on_delete=models.DO_NOTHING,
+        related_name="owned_parts",
+        blank=True,
+        null=True,
+        help_text=_("Is this item installed in another item?"),
+    )
 
-    customer = models.ForeignKey('company.Company', on_delete=models.SET_NULL,
-                                 related_name='stockitems', blank=True, null=True,
-                                 help_text=_('Item assigned to customer?'))
+    customer = models.ForeignKey(
+        "company.Company",
+        on_delete=models.SET_NULL,
+        related_name="stockitems",
+        blank=True,
+        null=True,
+        help_text=_("Item assigned to customer?"),
+    )
 
-    serial = models.PositiveIntegerField(blank=True, null=True,
-                                         help_text=_('Serial number for this item'))
- 
+    serial = models.PositiveIntegerField(
+        blank=True, null=True, help_text=_("Serial number for this item")
+    )
+
     URL = InvenTreeURLField(max_length=125, blank=True)
 
-    batch = models.CharField(max_length=100, blank=True, null=True,
-                             help_text=_('Batch code for this stock item'))
+    batch = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        help_text=_("Batch code for this stock item"),
+    )
 
-    quantity = models.DecimalField(max_digits=15, decimal_places=5, validators=[MinValueValidator(0)], default=1)
+    quantity = models.DecimalField(
+        max_digits=15, decimal_places=5, validators=[MinValueValidator(0)], default=1
+    )
 
     updated = models.DateField(auto_now=True, null=True)
 
     build = models.ForeignKey(
-        'build.Build', on_delete=models.SET_NULL,
-        blank=True, null=True,
-        help_text=_('Build for this stock item'),
-        related_name='build_outputs',
+        "build.Build",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        help_text=_("Build for this stock item"),
+        related_name="build_outputs",
     )
 
     purchase_order = models.ForeignKey(
-        'order.PurchaseOrder',
+        "order.PurchaseOrder",
         on_delete=models.SET_NULL,
-        related_name='stock_items',
-        blank=True, null=True,
-        help_text=_('Purchase order for this stock item')
+        related_name="stock_items",
+        blank=True,
+        null=True,
+        help_text=_("Purchase order for this stock item"),
     )
 
     # last time the stock was checked / counted
     stocktake_date = models.DateField(blank=True, null=True)
 
-    stocktake_user = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True,
-                                       related_name='stocktake_stock')
+    stocktake_user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="stocktake_stock",
+    )
 
     review_needed = models.BooleanField(default=False)
 
-    delete_on_deplete = models.BooleanField(default=True, help_text=_('Delete this Stock Item when stock is depleted'))
+    delete_on_deplete = models.BooleanField(
+        default=True, help_text=_("Delete this Stock Item when stock is depleted")
+    )
 
     status = models.PositiveIntegerField(
         default=StockStatus.OK,
         choices=StockStatus.items(),
-        validators=[MinValueValidator(0)])
+        validators=[MinValueValidator(0)],
+    )
 
-    notes = MarkdownxField(blank=True, null=True, help_text=_('Stock Item Notes'))
+    notes = MarkdownxField(blank=True, null=True, help_text=_("Stock Item Notes"))
 
     # If stock item is incoming, an (optional) ETA field
     # expected_arrival = models.DateField(null=True, blank=True)
@@ -413,12 +482,12 @@ class StockItem(MPTTModel):
     def has_tracking_info(self):
         return self.tracking_info.count() > 0
 
-    def addTransactionNote(self, title, user, notes='', url='', system=True):
+    def addTransactionNote(self, title, user, notes="", url="", system=True):
         """ Generation a stock transaction note for this item.
 
         Brief automated note detailing a movement or quantity change.
         """
-        
+
         track = StockItemTracking.objects.create(
             item=self,
             title=title,
@@ -427,13 +496,13 @@ class StockItem(MPTTModel):
             date=datetime.now().date(),
             notes=notes,
             URL=url,
-            system=system
+            system=system,
         )
 
         track.save()
 
     @transaction.atomic
-    def serializeStock(self, quantity, serials, user, notes='', location=None):
+    def serializeStock(self, quantity, serials, user, notes="", location=None):
         """ Split this stock item into unique serial numbers.
 
         - Quantity can be less than or equal to the quantity of the stock item
@@ -462,16 +531,30 @@ class StockItem(MPTTModel):
             raise ValidationError({"quantity": _("Quantity must be greater than zero")})
 
         if quantity > self.quantity:
-            raise ValidationError({"quantity": _("Quantity must not exceed available stock quantity ({n})".format(n=self.quantity))})
+            raise ValidationError(
+                {
+                    "quantity": _(
+                        "Quantity must not exceed available stock quantity ({n})".format(
+                            n=self.quantity
+                        )
+                    )
+                }
+            )
 
         if not type(serials) in [list, tuple]:
-            raise ValidationError({"serial_numbers": _("Serial numbers must be a list of integers")})
+            raise ValidationError(
+                {"serial_numbers": _("Serial numbers must be a list of integers")}
+            )
 
         if any([type(i) is not int for i in serials]):
-            raise ValidationError({"serial_numbers": _("Serial numbers must be a list of integers")})
+            raise ValidationError(
+                {"serial_numbers": _("Serial numbers must be a list of integers")}
+            )
 
         if not quantity == len(serials):
-            raise ValidationError({"quantity": _("Quantity does not match serial numbers")})
+            raise ValidationError(
+                {"quantity": _("Quantity does not match serial numbers")}
+            )
 
         # Test if each of the serial numbers are valid
         existing = []
@@ -481,11 +564,13 @@ class StockItem(MPTTModel):
                 existing.append(serial)
 
         if len(existing) > 0:
-            raise ValidationError({"serial_numbers": _("Serial numbers already exist: ") + str(existing)})
+            raise ValidationError(
+                {"serial_numbers": _("Serial numbers already exist: ") + str(existing)}
+            )
 
         # Create a new stock item for each unique serial number
         for serial in serials:
-            
+
             # Create a copy of this StockItem
             new_item = StockItem.objects.get(pk=self.pk)
             new_item.quantity = 1
@@ -503,17 +588,19 @@ class StockItem(MPTTModel):
             new_item.copyHistoryFrom(self)
 
             # Create a new stock tracking item
-            new_item.addTransactionNote(_('Add serial number'), user, notes=notes)
+            new_item.addTransactionNote(_("Add serial number"), user, notes=notes)
 
         # Remove the equivalent number of items
-        self.take_stock(quantity, user, notes=_('Serialized {n} items'.format(n=quantity)))
+        self.take_stock(
+            quantity, user, notes=_("Serialized {n} items".format(n=quantity))
+        )
 
     @transaction.atomic
     def copyHistoryFrom(self, other):
         """ Copy stock history from another part """
 
         for item in other.tracking_info.all():
-            
+
             item.item = self
             item.pk = None
             item.save()
@@ -572,10 +659,13 @@ class StockItem(MPTTModel):
         new_stock.addTransactionNote(
             "Split from existing stock",
             user,
-            "Split {n} from existing stock item".format(n=quantity))
+            "Split {n} from existing stock item".format(n=quantity),
+        )
 
         # Remove the specified quantity from THIS stock item
-        self.take_stock(quantity, user, 'Split {n} items into new stock item'.format(n=quantity))
+        self.take_stock(
+            quantity, user, "Split {n} items into new stock item".format(n=quantity)
+        )
 
     @transaction.atomic
     def move(self, location, notes, user, **kwargs):
@@ -595,7 +685,7 @@ class StockItem(MPTTModel):
         """
 
         try:
-            quantity = Decimal(kwargs.get('quantity', self.quantity))
+            quantity = Decimal(kwargs.get("quantity", self.quantity))
         except InvalidOperation:
             return False
 
@@ -605,7 +695,11 @@ class StockItem(MPTTModel):
         if location is None:
             # TODO - Raise appropriate error (cannot move to blank location)
             return False
-        elif self.location and (location.pk == self.location.pk) and (quantity == self.quantity):
+        elif (
+            self.location
+            and (location.pk == self.location.pk)
+            and (quantity == self.quantity)
+        ):
             # TODO - Raise appropriate error (cannot move to same location)
             return False
 
@@ -625,11 +719,7 @@ class StockItem(MPTTModel):
 
         self.location = location
 
-        self.addTransactionNote(
-            msg,
-            user,
-            notes=notes,
-            system=True)
+        self.addTransactionNote(msg, user, notes=notes, system=True)
 
         self.save()
 
@@ -661,7 +751,7 @@ class StockItem(MPTTModel):
         self.quantity = quantity
 
         if quantity == 0 and self.delete_on_deplete and self.can_delete():
-            
+
             # TODO - Do not actually "delete" stock at this point - instead give it a "DELETED" flag
             self.delete()
             return False
@@ -670,7 +760,7 @@ class StockItem(MPTTModel):
             return True
 
     @transaction.atomic
-    def stocktake(self, count, user, notes=''):
+    def stocktake(self, count, user, notes=""):
         """ Perform item stocktake.
         When the quantity of an item is counted,
         record the date of stocktake
@@ -689,15 +779,17 @@ class StockItem(MPTTModel):
 
         if self.updateQuantity(count):
 
-            self.addTransactionNote('Stocktake - counted {n} items'.format(n=count),
-                                    user,
-                                    notes=notes,
-                                    system=True)
+            self.addTransactionNote(
+                "Stocktake - counted {n} items".format(n=count),
+                user,
+                notes=notes,
+                system=True,
+            )
 
         return True
 
     @transaction.atomic
-    def add_stock(self, quantity, user, notes=''):
+    def add_stock(self, quantity, user, notes=""):
         """ Add items to stock
         This function can be called by initiating a ProjectRun,
         or by manually adding the items to the stock location
@@ -717,16 +809,18 @@ class StockItem(MPTTModel):
             return False
 
         if self.updateQuantity(self.quantity + quantity):
-            
-            self.addTransactionNote('Added {n} items to stock'.format(n=quantity),
-                                    user,
-                                    notes=notes,
-                                    system=True)
+
+            self.addTransactionNote(
+                "Added {n} items to stock".format(n=quantity),
+                user,
+                notes=notes,
+                system=True,
+            )
 
         return True
 
     @transaction.atomic
-    def take_stock(self, quantity, user, notes=''):
+    def take_stock(self, quantity, user, notes=""):
         """ Remove items from stock
         """
 
@@ -744,30 +838,30 @@ class StockItem(MPTTModel):
 
         if self.updateQuantity(self.quantity - quantity):
 
-            self.addTransactionNote('Removed {n} items from stock'.format(n=quantity),
-                                    user,
-                                    notes=notes,
-                                    system=True)
+            self.addTransactionNote(
+                "Removed {n} items from stock".format(n=quantity),
+                user,
+                notes=notes,
+                system=True,
+            )
 
         return True
 
     def __str__(self):
         if self.part.trackable and self.serial:
-            s = '{part} #{sn}'.format(
-                part=self.part.full_name,
-                sn=self.serial)
+            s = "{part} #{sn}".format(part=self.part.full_name, sn=self.serial)
         else:
-            s = '{n} x {part}'.format(
-                n=helpers.decimal2string(self.quantity),
-                part=self.part.full_name)
+            s = "{n} x {part}".format(
+                n=helpers.decimal2string(self.quantity), part=self.part.full_name
+            )
 
         if self.location:
-            s += ' @ {loc}'.format(loc=self.location.name)
+            s += " @ {loc}".format(loc=self.location.name)
 
         return s
 
 
-@receiver(pre_delete, sender=StockItem, dispatch_uid='stock_item_pre_delete_log')
+@receiver(pre_delete, sender=StockItem, dispatch_uid="stock_item_pre_delete_log")
 def before_delete_stock_item(sender, instance, using, **kwargs):
     """ Receives pre_delete signal from StockItem object.
 
@@ -798,25 +892,32 @@ class StockItemTracking(models.Model):
     """
 
     def get_absolute_url(self):
-        return '/stock/track/{pk}'.format(pk=self.id)
+        return "/stock/track/{pk}".format(pk=self.id)
         # return reverse('stock-tracking-detail', kwargs={'pk': self.id})
 
-    item = models.ForeignKey(StockItem, on_delete=models.CASCADE,
-                             related_name='tracking_info')
+    item = models.ForeignKey(
+        StockItem, on_delete=models.CASCADE, related_name="tracking_info"
+    )
 
     date = models.DateTimeField(auto_now_add=True, editable=False)
 
-    title = models.CharField(blank=False, max_length=250, help_text=_('Tracking entry title'))
+    title = models.CharField(
+        blank=False, max_length=250, help_text=_("Tracking entry title")
+    )
 
-    notes = models.CharField(blank=True, max_length=512, help_text=_('Entry notes'))
+    notes = models.CharField(blank=True, max_length=512, help_text=_("Entry notes"))
 
-    URL = InvenTreeURLField(blank=True, help_text=_('Link to external page for further information'))
+    URL = InvenTreeURLField(
+        blank=True, help_text=_("Link to external page for further information")
+    )
 
     user = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True)
 
     system = models.BooleanField(default=False)
 
-    quantity = models.DecimalField(max_digits=15, decimal_places=5, validators=[MinValueValidator(0)], default=1)
+    quantity = models.DecimalField(
+        max_digits=15, decimal_places=5, validators=[MinValueValidator(0)], default=1
+    )
 
     # TODO
     # image = models.ImageField(upload_to=func, max_length=255, null=True, blank=True)

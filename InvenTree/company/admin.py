@@ -3,17 +3,14 @@ from __future__ import unicode_literals
 
 from django.contrib import admin
 
-from import_export.admin import ImportExportModelAdmin
-from import_export.resources import ModelResource
-from import_export.fields import Field
 import import_export.widgets as widgets
-
-from .models import Company
-from .models import SupplierPart
-from .models import SupplierPriceBreak
-
-from part.models import Part
 from common.models import Currency
+from import_export.admin import ImportExportModelAdmin
+from import_export.fields import Field
+from import_export.resources import ModelResource
+from part.models import Part
+
+from .models import Company, SupplierPart, SupplierPriceBreak
 
 
 class CompanyResource(ModelResource):
@@ -30,19 +27,19 @@ class CompanyAdmin(ImportExportModelAdmin):
 
     resource_class = CompanyResource
 
-    list_display = ('name', 'website', 'contact')
+    list_display = ("name", "website", "contact")
 
 
 class SupplierPartResource(ModelResource):
     """ Class for managing SupplierPart data import/export """
 
-    part = Field(attribute='part', widget=widgets.ForeignKeyWidget(Part))
+    part = Field(attribute="part", widget=widgets.ForeignKeyWidget(Part))
 
-    part_name = Field(attribute='part__full_name', readonly=True)
+    part_name = Field(attribute="part__full_name", readonly=True)
 
-    supplier = Field(attribute='supplier', widget=widgets.ForeignKeyWidget(Company))
+    supplier = Field(attribute="supplier", widget=widgets.ForeignKeyWidget(Company))
 
-    supplier_name = Field(attribute='supplier__name', readonly=True)
+    supplier_name = Field(attribute="supplier__name", readonly=True)
 
     class Meta:
         model = SupplierPart
@@ -55,25 +52,25 @@ class SupplierPartAdmin(ImportExportModelAdmin):
 
     resource_class = SupplierPartResource
 
-    list_display = ('part', 'supplier', 'SKU')
+    list_display = ("part", "supplier", "SKU")
 
 
 class SupplierPriceBreakResource(ModelResource):
     """ Class for managing SupplierPriceBreak data import/export """
 
-    part = Field(attribute='part', widget=widgets.ForeignKeyWidget(SupplierPart))
+    part = Field(attribute="part", widget=widgets.ForeignKeyWidget(SupplierPart))
 
-    currency = Field(attribute='currency', widget=widgets.ForeignKeyWidget(Currency))
+    currency = Field(attribute="currency", widget=widgets.ForeignKeyWidget(Currency))
 
-    supplier_id = Field(attribute='part__supplier__pk', readonly=True)
+    supplier_id = Field(attribute="part__supplier__pk", readonly=True)
 
-    supplier_name = Field(attribute='part__supplier__name', readonly=True)
+    supplier_name = Field(attribute="part__supplier__name", readonly=True)
 
-    part_name = Field(attribute='part__part__full_name', readonly=True)
+    part_name = Field(attribute="part__part__full_name", readonly=True)
 
-    SKU = Field(attribute='part__SKU', readonly=True)
+    SKU = Field(attribute="part__SKU", readonly=True)
 
-    MPN = Field(attribute='part__MPN', readonly=True)
+    MPN = Field(attribute="part__MPN", readonly=True)
 
     class Meta:
         model = SupplierPriceBreak
@@ -86,7 +83,7 @@ class SupplierPriceBreakAdmin(ImportExportModelAdmin):
 
     resource_class = SupplierPriceBreakResource
 
-    list_display = ('part', 'quantity', 'cost')
+    list_display = ("part", "quantity", "cost")
 
 
 admin.site.register(Company, CompanyAdmin)

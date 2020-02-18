@@ -8,23 +8,21 @@ as JSON objects and passing them to modal forms (using jQuery / bootstrap).
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
-from django.utils.translation import gettext_lazy as _
+from django.http import HttpResponseRedirect, JsonResponse
 from django.template.loader import render_to_string
-from django.http import JsonResponse, HttpResponseRedirect
-
+from django.utils.translation import gettext_lazy as _
 from django.views import View
-from django.views.generic import UpdateView, CreateView
+from django.views.generic import CreateView, UpdateView
 from django.views.generic.base import TemplateView
 
-from part.models import Part, PartCategory
-from stock.models import StockLocation, StockItem
 from common.models import InvenTreeSetting
+from part.models import Part, PartCategory
+from rest_framework import views
+from stock.models import StockItem, StockLocation
 
 from .forms import DeleteForm, EditUserForm, SetPasswordForm
 from .helpers import str2bool
 from .version import inventreeVersion
-
-from rest_framework import views
 
 
 class TreeSerializer(views.APIView):
@@ -42,24 +40,24 @@ class TreeSerializer(views.APIView):
         Default implementation returns #
         """
 
-        return '#'
+        return "#"
 
     def itemToJson(self, item):
 
         data = {
-            'pk': item.id,
-            'text': item.name,
-            'href': item.get_absolute_url(),
-            'tags': [item.item_count],
+            "pk": item.id,
+            "text": item.name,
+            "href": item.get_absolute_url(),
+            "tags": [item.item_count],
         }
 
         if item.has_children:
             nodes = []
 
-            for child in item.children.all().order_by('name'):
+            for child in item.children.all().order_by("name"):
                 nodes.append(self.itemToJson(child))
 
-            data['nodes'] = nodes
+            data["nodes"] = nodes
 
         return data
 
@@ -86,11 +84,11 @@ class TreeSerializer(views.APIView):
             top_count += item.item_count
 
         self.tree = {
-            'pk': None,
-            'text': self.title,
-            'href': self.root_url,
-            'nodes': nodes,
-            'tags': [top_count],
+            "pk": None,
+            "text": self.title,
+            "href": self.root_url,
+            "nodes": nodes,
+            "tags": [top_count],
         }
 
     def get(self, request, *args, **kwargs):
@@ -98,9 +96,7 @@ class TreeSerializer(views.APIView):
 
         self.generate_tree()
 
-        response = {
-            'tree': [self.tree]
-        }
+        response = {"tree": [self.tree]}
 
         return JsonResponse(response, safe=False)
 
@@ -113,12 +109,12 @@ class AjaxMixin(object):
 
     # By default, point to the modal_form template
     # (this can be overridden by a child class)
-    ajax_template_name = 'modal_form.html'
+    ajax_template_name = "modal_form.html"
 
-    ajax_form_action = ''
-    ajax_form_title = ''
+    ajax_form_action = ""
+    ajax_form_title = ""
 
-    def get_param(self, name, method='GET'):
+    def get_param(self, name, method="GET"):
         """ Get a request query parameter value from URL e.g. ?part=3
 
         Args:
@@ -129,7 +125,7 @@ class AjaxMixin(object):
             Value of the supplier parameter or None if parameter is not available
         """
 
-        if method == 'POST':
+        if method == "POST":
             return self.request.POST.get(name, None)
         else:
             return self.request.GET.get(name, None)
@@ -156,7 +152,7 @@ class AjaxMixin(object):
         """
 
         if not request.is_ajax():
-            return HttpResponseRedirect('/')
+            return HttpResponseRedirect("/")
 
         if context is None:
             try:
@@ -165,16 +161,14 @@ class AjaxMixin(object):
                 context = {}
 
         if form:
-            context['form'] = form
+            context["form"] = form
         else:
-            context['form'] = None
+            context["form"] = None
 
-        data['title'] = self.ajax_form_title
+        data["title"] = self.ajax_form_title
 
-        data['html_form'] = render_to_string(
-            self.ajax_template_name,
-            context,
-            request=request
+        data["html_form"] = render_to_string(
+            self.ajax_template_name, context, request=request
         )
 
         # Custom feedback`data
@@ -205,16 +199,16 @@ class QRCodeView(AjaxView):
     """
 
     ajax_template_name = "qr_code.html"
-    
+
     def get(self, request, *args, **kwargs):
         self.request = request
-        self.pk = self.kwargs['pk']
+        self.pk = self.kwargs["pk"]
         return self.renderJsonResponse(request, None, context=self.get_context_data())
 
     def get_qr_data(self):
         """ Returns the text object to render to a QR code.
         The actual rendering will be handled by the template """
-        
+
         return None
 
     def get_context_data(self):
@@ -222,16 +216,16 @@ class QRCodeView(AjaxView):
 
         Explicity passes the parameter 'qr_data'
         """
-        
+
         context = {}
 
         qr = self.get_qr_data()
 
         if qr:
-            context['qr_data'] = qr
+            context["qr_data"] = qr
         else:
-            context['error_msg'] = 'Error generating QR code'
-        
+            context["error_msg"] = "Error generating QR code"
+
         return context
 
 
@@ -275,7 +269,7 @@ class AjaxCreateView(AjaxMixin, CreateView):
 
         # Extra JSON data sent alongside form
         data = {
-            'form_valid': self.form.is_valid(),
+            "form_valid": self.form.is_valid(),
         }
 
         if self.form.is_valid():
@@ -285,11 +279,11 @@ class AjaxCreateView(AjaxMixin, CreateView):
             self.post_save()
 
             # Return the PK of the newly-created object
-            data['pk'] = self.object.pk
-            data['text'] = str(self.object)
+            data["pk"] = self.object.pk
+            data["text"] = str(self.object)
 
             try:
-                data['url'] = self.object.get_absolute_url()
+                data["url"] = self.object.get_absolute_url()
             except AttributeError:
                 pass
 
@@ -310,8 +304,10 @@ class AjaxUpdateView(AjaxMixin, UpdateView):
         """
 
         super(UpdateView, self).get(request, *args, **kwargs)
-        
-        return self.renderJsonResponse(request, self.get_form(), context=self.get_context_data())
+
+        return self.renderJsonResponse(
+            request, self.get_form(), context=self.get_context_data()
+        )
 
     def post(self, request, *args, **kwargs):
         """ Respond to POST request.
@@ -327,18 +323,16 @@ class AjaxUpdateView(AjaxMixin, UpdateView):
 
         form = self.get_form()
 
-        data = {
-            'form_valid': form.is_valid()
-        }
+        data = {"form_valid": form.is_valid()}
 
         if form.is_valid():
             obj = form.save()
 
             # Include context data about the updated object
-            data['pk'] = obj.id
+            data["pk"] = obj.id
 
             try:
-                data['url'] = obj.get_absolute_url()
+                data["url"] = obj.get_absolute_url()
             except AttributeError:
                 pass
 
@@ -355,11 +349,11 @@ class AjaxDeleteView(AjaxMixin, UpdateView):
     form_class = DeleteForm
     ajax_form_title = "Delete Item"
     ajax_template_name = "modal_delete_form.html"
-    context_object_name = 'item'
+    context_object_name = "item"
 
     def get_object(self):
         try:
-            self.object = self.model.objects.get(pk=self.kwargs['pk'])
+            self.object = self.model.objects.get(pk=self.kwargs["pk"])
         except:
             return None
         return self.object
@@ -396,19 +390,16 @@ class AjaxDeleteView(AjaxMixin, UpdateView):
 
         form = self.get_form()
 
-        confirmed = str2bool(request.POST.get('confirm_delete', False))
+        confirmed = str2bool(request.POST.get("confirm_delete", False))
         context = self.get_context_data()
 
         if confirmed:
             obj.delete()
         else:
-            form.errors['confirm_delete'] = ['Check box to confirm item deletion']
+            form.errors["confirm_delete"] = ["Check box to confirm item deletion"]
             context[self.context_object_name] = self.get_object()
 
-        data = {
-            'id': pk,
-            'form_valid': confirmed
-        }
+        data = {"id": pk, "form_valid": confirmed}
 
         return self.renderJsonResponse(request, form, data=data, context=context)
 
@@ -420,10 +411,7 @@ class InfoView(AjaxView):
 
     def get(self, request, *args, **kwargs):
 
-        data = {
-            'server': 'InvenTree',
-            'version': inventreeVersion()
-        }
+        data = {"server": "InvenTree", "version": inventreeVersion()}
 
         return JsonResponse(data)
 
@@ -455,22 +443,20 @@ class SetPasswordView(AjaxUpdateView):
 
         valid = form.is_valid()
 
-        p1 = request.POST.get('enter_password', '')
-        p2 = request.POST.get('confirm_password', '')
-        
+        p1 = request.POST.get("enter_password", "")
+        p2 = request.POST.get("confirm_password", "")
+
         if valid:
             # Passwords must match
 
             if not p1 == p2:
-                error = 'Password fields must match'
-                form.errors['enter_password'] = [error]
-                form.errors['confirm_password'] = [error]
+                error = "Password fields must match"
+                form.errors["enter_password"] = [error]
+                form.errors["confirm_password"] = [error]
 
                 valid = False
 
-        data = {
-            'form_valid': valid
-        }
+        data = {"form_valid": valid}
 
         if valid:
             user = self.request.user
@@ -484,21 +470,31 @@ class SetPasswordView(AjaxUpdateView):
 class IndexView(TemplateView):
     """ View for InvenTree index page """
 
-    template_name = 'InvenTree/index.html'
+    template_name = "InvenTree/index.html"
 
     def get_context_data(self, **kwargs):
 
         context = super(TemplateView, self).get_context_data(**kwargs)
 
-        context['starred'] = [star.part for star in self.request.user.starred_parts.all()]
+        context["starred"] = [
+            star.part for star in self.request.user.starred_parts.all()
+        ]
 
         # Generate a list of orderable parts which have stock below their minimum values
         # TODO - Is there a less expensive way to get these from the database
-        context['to_order'] = [part for part in Part.objects.filter(purchaseable=True) if part.need_to_restock()]
-    
+        context["to_order"] = [
+            part
+            for part in Part.objects.filter(purchaseable=True)
+            if part.need_to_restock()
+        ]
+
         # Generate a list of assembly parts which have stock below their minimum values
         # TODO - Is there a less expensive way to get these from the database
-        context['to_build'] = [part for part in Part.objects.filter(assembly=True) if part.need_to_restock()]
+        context["to_build"] = [
+            part
+            for part in Part.objects.filter(assembly=True)
+            if part.need_to_restock()
+        ]
 
         return context
 
@@ -509,7 +505,7 @@ class SearchView(TemplateView):
     Displays results of search query
     """
 
-    template_name = 'InvenTree/search.html'
+    template_name = "InvenTree/search.html"
 
     def post(self, request, *args, **kwargs):
         """ Handle POST request (which contains search query).
@@ -519,9 +515,9 @@ class SearchView(TemplateView):
 
         context = self.get_context_data()
 
-        query = request.POST.get('search', '')
+        query = request.POST.get("search", "")
 
-        context['query'] = query
+        context["query"] = query
 
         return super(TemplateView, self).render_to_response(context)
 
@@ -536,7 +532,7 @@ class SettingsView(TemplateView):
 
         ctx = super().get_context_data(**kwargs).copy()
 
-        ctx['settings'] = InvenTreeSetting.objects.all().order_by('key')
+        ctx["settings"] = InvenTreeSetting.objects.all().order_by("key")
 
         return ctx
 
@@ -552,12 +548,12 @@ class DatabaseStatsView(AjaxView):
         ctx = {}
 
         # Part stats
-        ctx['part_count'] = Part.objects.count()
-        ctx['part_cat_count'] = PartCategory.objects.count()
-        
+        ctx["part_count"] = Part.objects.count()
+        ctx["part_cat_count"] = PartCategory.objects.count()
+
         # Stock stats
-        ctx['stock_item_count'] = StockItem.objects.count()
-        ctx['stock_loc_count'] = StockLocation.objects.count()
+        ctx["stock_item_count"] = StockItem.objects.count()
+        ctx["stock_loc_count"] = StockLocation.objects.count()
 
         """
         TODO: Other ideas for database metrics

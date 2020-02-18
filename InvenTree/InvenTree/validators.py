@@ -2,13 +2,13 @@
 Custom field validators for InvenTree
 """
 
+import re
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 
 from common.models import InvenTreeSetting
-
-import re
 
 
 def allowable_url_schemes():
@@ -18,7 +18,7 @@ def allowable_url_schemes():
     extra schemas """
 
     # Default schemes
-    schemes = ['http', 'https', 'ftp', 'ftps']
+    schemes = ["http", "https", "ftp", "ftps"]
 
     extra = settings.EXTRA_URL_SCHEMES
 
@@ -33,31 +33,31 @@ def validate_part_name(value):
     """ Prevent some illegal characters in part names.
     """
 
-    for c in ['|', '#', '$', '{', '}']:
+    for c in ["|", "#", "$", "{", "}"]:
         if c in str(value):
-            raise ValidationError(
-                _('Invalid character in part name')
-            )
+            raise ValidationError(_("Invalid character in part name"))
 
 
 def validate_part_ipn(value):
     """ Validate the Part IPN against regex rule """
 
-    pattern = InvenTreeSetting.get_setting('part_ipn_regex')
+    pattern = InvenTreeSetting.get_setting("part_ipn_regex")
 
     if pattern:
         match = re.search(pattern, value)
 
         if match is None:
-            raise ValidationError(_('IPN must match regex pattern') + " '{pat}'".format(pat=pattern))
+            raise ValidationError(
+                _("IPN must match regex pattern") + " '{pat}'".format(pat=pattern)
+            )
 
 
 def validate_tree_name(value):
     """ Prevent illegal characters in tree item names """
 
-    for c in "!@#$%^&*'\"\\/[]{}<>,|+=~`\"":
+    for c in '!@#$%^&*\'"\\/[]{}<>,|+=~`"':
         if c in str(value):
-            raise ValidationError(_('Illegal character in name ({x})'.format(x=c)))
+            raise ValidationError(_("Illegal character in name ({x})".format(x=c)))
 
 
 def validate_overage(value):
@@ -77,14 +77,14 @@ def validate_overage(value):
 
         if i < 0:
             raise ValidationError(_("Overage value must not be negative"))
-        
+
         # Looks like an integer!
         return True
     except ValueError:
         pass
 
     # Now look for a percentage value
-    if value.endswith('%'):
+    if value.endswith("%"):
         v = value[:-1].strip()
 
         # Does it look like a number?
@@ -100,6 +100,4 @@ def validate_overage(value):
         except ValueError:
             pass
 
-    raise ValidationError(
-        _("Overage must be an integer value or a percentage")
-    )
+    raise ValidationError(_("Overage must be an integer value or a percentage"))

@@ -3,15 +3,16 @@ Provides helper functions used throughout the InvenTree project
 """
 
 import io
-import re
 import json
 import os.path
-from PIL import Image
-
+import re
 from wsgiref.util import FileWrapper
-from django.http import StreamingHttpResponse
+
 from django.core.exceptions import ValidationError
+from django.http import StreamingHttpResponse
 from django.utils.translation import ugettext as _
+
+from PIL import Image
 
 
 def TestIfImage(img):
@@ -29,12 +30,16 @@ def TestIfImageURL(url):
     Simply tests the extension against a set of allowed values
     """
     return os.path.splitext(os.path.basename(url))[-1].lower() in [
-        '.jpg', '.jpeg',
-        '.png', '.bmp',
-        '.tif', '.tiff',
-        '.webp', '.gif',
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".bmp",
+        ".tif",
+        ".tiff",
+        ".webp",
+        ".gif",
     ]
-        
+
 
 def str2bool(text, test=True):
     """ Test if a string 'looks' like a boolean value.
@@ -47,9 +52,25 @@ def str2bool(text, test=True):
         True if the text looks like the selected boolean value
     """
     if test:
-        return str(text).lower() in ['1', 'y', 'yes', 't', 'true', 'ok', 'on', ]
+        return str(text).lower() in [
+            "1",
+            "y",
+            "yes",
+            "t",
+            "true",
+            "ok",
+            "on",
+        ]
     else:
-        return str(text).lower() in ['0', 'n', 'no', 'none', 'f', 'false', 'off', ]
+        return str(text).lower() in [
+            "0",
+            "n",
+            "no",
+            "none",
+            "f",
+            "false",
+            "off",
+        ]
 
 
 def decimal2string(d):
@@ -75,7 +96,7 @@ def decimal2string(d):
     s = str(d)
 
     # Return entire number if there is no decimal place
-    if '.' not in s:
+    if "." not in s:
         return s
 
     return s.rstrip("0").rstrip(".")
@@ -115,28 +136,28 @@ def MakeBarcode(object_type, object_id, object_url, data={}):
     """
 
     # Add in some generic InvenTree data
-    data['type'] = object_type
-    data['id'] = object_id
-    data['url'] = object_url
-    data['tool'] = 'InvenTree'
+    data["type"] = object_type
+    data["id"] = object_id
+    data["url"] = object_url
+    data["tool"] = "InvenTree"
 
     return json.dumps(data, sort_keys=True)
 
 
 def GetExportFormats():
     """ Return a list of allowable file formats for exporting data """
-    
+
     return [
-        'csv',
-        'tsv',
-        'xls',
-        'xlsx',
-        'json',
-        'yaml',
+        "csv",
+        "tsv",
+        "xls",
+        "xlsx",
+        "json",
+        "yaml",
     ]
 
 
-def DownloadFile(data, filename, content_type='application/text'):
+def DownloadFile(data, filename, content_type="application/text"):
     """ Create a dynamic file for the user to download.
     
     Args:
@@ -156,8 +177,8 @@ def DownloadFile(data, filename, content_type='application/text'):
         wrapper = FileWrapper(io.BytesIO(data))
 
     response = StreamingHttpResponse(wrapper, content_type=content_type)
-    response['Content-Length'] = len(data)
-    response['Content-Disposition'] = 'attachment; filename={f}'.format(f=filename)
+    response["Content-Length"] = len(data)
+    response["Content-Disposition"] = "attachment; filename={f}".format(f=filename)
 
     return response
 
@@ -193,8 +214,8 @@ def ExtractSerialNumbers(serials, expected_quantity):
         group = group.strip()
 
         # Hyphen indicates a range of numbers
-        if '-' in group:
-            items = group.split('-')
+        if "-" in group:
+            items = group.split("-")
 
             if len(items) == 2:
                 a = items[0].strip()
@@ -207,7 +228,7 @@ def ExtractSerialNumbers(serials, expected_quantity):
                     if a < b:
                         for n in range(a, b + 1):
                             if n in numbers:
-                                errors.append(_('Duplicate serial: {n}'.format(n=n)))
+                                errors.append(_("Duplicate serial: {n}".format(n=n)))
                             else:
                                 numbers.append(n)
                     else:
@@ -238,6 +259,14 @@ def ExtractSerialNumbers(serials, expected_quantity):
 
     # The number of extracted serial numbers must match the expected quantity
     if not expected_quantity == len(numbers):
-        raise ValidationError([_("Number of unique serial number ({s}) must match quantity ({q})".format(s=len(numbers), q=expected_quantity))])
+        raise ValidationError(
+            [
+                _(
+                    "Number of unique serial number ({s}) must match quantity ({q})".format(
+                        s=len(numbers), q=expected_quantity
+                    )
+                )
+            ]
+        )
 
     return numbers

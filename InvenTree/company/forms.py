@@ -7,9 +7,7 @@ from __future__ import unicode_literals
 
 from InvenTree.forms import HelperForm
 
-from .models import Company
-from .models import SupplierPart
-from .models import SupplierPriceBreak
+from .models import Company, SupplierPart, SupplierPriceBreak
 
 
 class EditCompanyForm(HelperForm):
@@ -18,15 +16,15 @@ class EditCompanyForm(HelperForm):
     class Meta:
         model = Company
         fields = [
-            'name',
-            'description',
-            'website',
-            'address',
-            'phone',
-            'email',
-            'contact',
-            'is_customer',
-            'is_supplier',
+            "name",
+            "description",
+            "website",
+            "address",
+            "phone",
+            "email",
+            "contact",
+            "is_customer",
+            "is_supplier",
         ]
 
 
@@ -35,9 +33,7 @@ class CompanyImageForm(HelperForm):
 
     class Meta:
         model = Company
-        fields = [
-            'image'
-        ]
+        fields = ["image"]
 
 
 class EditSupplierPartForm(HelperForm):
@@ -46,17 +42,17 @@ class EditSupplierPartForm(HelperForm):
     class Meta:
         model = SupplierPart
         fields = [
-            'part',
-            'supplier',
-            'SKU',
-            'description',
-            'manufacturer',
-            'MPN',
-            'URL',
-            'note',
-            'base_cost',
-            'multiple',
-            'packaging',
+            "part",
+            "supplier",
+            "SKU",
+            "description",
+            "manufacturer",
+            "MPN",
+            "URL",
+            "note",
+            "base_cost",
+            "multiple",
+            "packaging",
             # 'lead_time'
         ]
 
@@ -67,8 +63,8 @@ class EditPriceBreakForm(HelperForm):
     class Meta:
         model = SupplierPriceBreak
         fields = [
-            'part',
-            'quantity',
-            'cost',
-            'currency',
+            "part",
+            "quantity",
+            "cost",
+            "currency",
         ]

@@ -2,9 +2,9 @@
 JSON serializers for common components
 """
 
-from .models import Currency
-
 from InvenTree.serializers import InvenTreeModelSerializer
+
+from .models import Currency
 
 
 class CurrencySerializer(InvenTreeModelSerializer):
@@ -12,11 +12,4 @@ class CurrencySerializer(InvenTreeModelSerializer):
 
     class Meta:
         model = Currency
-        fields = [
-            'pk',
-            'symbol',
-            'suffix',
-            'description',
-            'value',
-            'base'
-        ]
+        fields = ["pk", "symbol", "suffix", "description", "value", "base"]

@@ -9,21 +9,21 @@ from django import forms
 from django.utils.translation import ugettext as _
 
 from mptt.fields import TreeNodeChoiceField
+from stock.models import StockLocation
 
 from InvenTree.forms import HelperForm
 
-from stock.models import StockLocation
 from .models import PurchaseOrder, PurchaseOrderLineItem
 
 
 class IssuePurchaseOrderForm(HelperForm):
 
-    confirm = forms.BooleanField(required=False, help_text=_('Place order'))
+    confirm = forms.BooleanField(required=False, help_text=_("Place order"))
 
     class Meta:
         model = PurchaseOrder
         fields = [
-            'confirm',
+            "confirm",
         ]
 
 
@@ -34,29 +34,33 @@ class CompletePurchaseOrderForm(HelperForm):
     class Meta:
         model = PurchaseOrder
         fields = [
-            'confirm',
+            "confirm",
         ]
 
 
 class CancelPurchaseOrderForm(HelperForm):
 
-    confirm = forms.BooleanField(required=False, help_text=_('Cancel order'))
+    confirm = forms.BooleanField(required=False, help_text=_("Cancel order"))
 
     class Meta:
         model = PurchaseOrder
         fields = [
-            'confirm',
+            "confirm",
         ]
-        
+
 
 class ReceivePurchaseOrderForm(HelperForm):
 
-    location = TreeNodeChoiceField(queryset=StockLocation.objects.all(), required=True, help_text=_('Receive parts to this location'))
+    location = TreeNodeChoiceField(
+        queryset=StockLocation.objects.all(),
+        required=True,
+        help_text=_("Receive parts to this location"),
+    )
 
     class Meta:
         model = PurchaseOrder
         fields = [
-            'location',
+            "location",
         ]
 
 
@@ -65,13 +69,7 @@ class EditPurchaseOrderForm(HelperForm):
 
     class Meta:
         model = PurchaseOrder
-        fields = [
-            'reference',
-            'supplier',
-            'description',
-            'URL',
-            'notes'
-        ]
+        fields = ["reference", "supplier", "description", "URL", "notes"]
 
 
 class EditPurchaseOrderLineItemForm(HelperForm):
@@ -80,9 +78,9 @@ class EditPurchaseOrderLineItemForm(HelperForm):
     class Meta:
         model = PurchaseOrderLineItem
         fields = [
-            'order',
-            'part',
-            'quantity',
-            'reference',
-            'notes',
+            "order",
+            "part",
+            "quantity",
+            "reference",
+            "notes",
         ]

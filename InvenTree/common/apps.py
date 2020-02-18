@@ -1,13 +1,13 @@
+import os
+
 from django.apps import AppConfig
 from django.db.utils import OperationalError, ProgrammingError
-
-import os
 
 import yaml
 
 
 class CommonConfig(AppConfig):
-    name = 'common'
+    name = "common"
 
     def ready(self):
         """ Will be called when the Common app is first loaded """
@@ -21,23 +21,21 @@ class CommonConfig(AppConfig):
         from .models import InvenTreeSetting
 
         here = os.path.dirname(os.path.abspath(__file__))
-        settings_file = os.path.join(here, 'kvp.yaml')
+        settings_file = os.path.join(here, "kvp.yaml")
 
         with open(settings_file) as kvp:
             values = yaml.safe_load(kvp)
 
         for value in values:
-            key = value['key']
-            default = value['default']
-            description = value['description']
+            key = value["key"]
+            default = value["default"]
+            description = value["description"]
 
             try:
                 # If a particular setting does not exist in the database, create it now
                 if not InvenTreeSetting.objects.filter(key=key).exists():
                     setting = InvenTreeSetting(
-                        key=key,
-                        value=default,
-                        description=description
+                        key=key, value=default, description=description
                     )
 
                     setting.save()

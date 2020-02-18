@@ -20,58 +20,57 @@ class EditBuildForm(HelperForm):
     class Meta:
         model = Build
         fields = [
-            'title',
-            'part',
-            'quantity',
-            'take_from',
-            'batch',
-            'URL',
+            "title",
+            "part",
+            "quantity",
+            "take_from",
+            "batch",
+            "URL",
         ]
 
 
 class ConfirmBuildForm(HelperForm):
     """ Form for auto-allocation of stock to a build """
 
-    confirm = forms.BooleanField(required=False, help_text=_('Confirm'))
+    confirm = forms.BooleanField(required=False, help_text=_("Confirm"))
 
     class Meta:
         model = Build
-        fields = [
-            'confirm'
-        ]
+        fields = ["confirm"]
 
 
 class CompleteBuildForm(HelperForm):
     """ Form for marking a Build as complete """
 
     location = forms.ModelChoiceField(
-        queryset=StockLocation.objects.all(),
-        help_text='Location of completed parts',
+        queryset=StockLocation.objects.all(), help_text="Location of completed parts",
     )
 
-    serial_numbers = forms.CharField(label='Serial numbers', required=False, help_text=_('Enter unique serial numbers (or leave blank)'))
+    serial_numbers = forms.CharField(
+        label="Serial numbers",
+        required=False,
+        help_text=_("Enter unique serial numbers (or leave blank)"),
+    )
 
-    confirm = forms.BooleanField(required=False, help_text=_('Confirm build completion'))
+    confirm = forms.BooleanField(
+        required=False, help_text=_("Confirm build completion")
+    )
 
     class Meta:
         model = Build
-        fields = [
-            'serial_numbers',
-            'location',
-            'confirm'
-        ]
+        fields = ["serial_numbers", "location", "confirm"]
 
 
 class CancelBuildForm(HelperForm):
     """ Form for cancelling a build """
 
-    confirm_cancel = forms.BooleanField(required=False, help_text='Confirm build cancellation')
+    confirm_cancel = forms.BooleanField(
+        required=False, help_text="Confirm build cancellation"
+    )
 
     class Meta:
         model = Build
-        fields = [
-            'confirm_cancel'
-        ]
+        fields = ["confirm_cancel"]
 
 
 class EditBuildItemForm(HelperForm):
@@ -80,7 +79,7 @@ class EditBuildItemForm(HelperForm):
     class Meta:
         model = BuildItem
         fields = [
-            'build',
-            'stock_item',
-            'quantity',
+            "build",
+            "stock_item",
+            "quantity",
         ]

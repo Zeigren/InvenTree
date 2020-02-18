@@ -43,59 +43,71 @@ class Build(models.Model):
     """
 
     def __str__(self):
-        return "Build {q} x {part}".format(q=decimal2string(self.quantity), part=str(self.part))
+        return "Build {q} x {part}".format(
+            q=decimal2string(self.quantity), part=str(self.part)
+        )
 
     def get_absolute_url(self):
-        return reverse('build-detail', kwargs={'pk': self.id})
+        return reverse("build-detail", kwargs={"pk": self.id})
 
     title = models.CharField(
-        blank=False,
-        max_length=100,
-        help_text=_('Brief description of the build'))
+        blank=False, max_length=100, help_text=_("Brief description of the build")
+    )
 
-    part = models.ForeignKey('part.Part', on_delete=models.CASCADE,
-                             related_name='builds',
-                             limit_choices_to={
-                                 'is_template': False,
-                                 'assembly': True,
-                                 'active': True
-                             },
-                             help_text=_('Select part to build'),
-                             )
-    
-    take_from = models.ForeignKey('stock.StockLocation', on_delete=models.SET_NULL,
-                                  related_name='sourcing_builds',
-                                  null=True, blank=True,
-                                  help_text=_('Select location to take stock from for this build (leave blank to take from any stock location)')
-                                  )
-    
+    part = models.ForeignKey(
+        "part.Part",
+        on_delete=models.CASCADE,
+        related_name="builds",
+        limit_choices_to={"is_template": False, "assembly": True, "active": True},
+        help_text=_("Select part to build"),
+    )
+
+    take_from = models.ForeignKey(
+        "stock.StockLocation",
+        on_delete=models.SET_NULL,
+        related_name="sourcing_builds",
+        null=True,
+        blank=True,
+        help_text=_(
+            "Select location to take stock from for this build (leave blank to take from any stock location)"
+        ),
+    )
+
     quantity = models.PositiveIntegerField(
         default=1,
         validators=[MinValueValidator(1)],
-        help_text=_('Number of parts to build')
+        help_text=_("Number of parts to build"),
     )
 
-    status = models.PositiveIntegerField(default=BuildStatus.PENDING,
-                                         choices=BuildStatus.items(),
-                                         validators=[MinValueValidator(0)],
-                                         help_text=_('Build status'))
-    
-    batch = models.CharField(max_length=100, blank=True, null=True,
-                             help_text=_('Batch code for this build output'))
-    
+    status = models.PositiveIntegerField(
+        default=BuildStatus.PENDING,
+        choices=BuildStatus.items(),
+        validators=[MinValueValidator(0)],
+        help_text=_("Build status"),
+    )
+
+    batch = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        help_text=_("Batch code for this build output"),
+    )
+
     creation_date = models.DateField(auto_now_add=True, editable=False)
-    
+
     completion_date = models.DateField(null=True, blank=True)
 
-    completed_by = models.ForeignKey(User,
-                                     on_delete=models.SET_NULL,
-                                     blank=True, null=True,
-                                     related_name='builds_completed'
-                                     )
-    
-    URL = InvenTreeURLField(blank=True, help_text=_('Link to external URL'))
+    completed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="builds_completed",
+    )
 
-    notes = MarkdownxField(blank=True, help_text=_('Extra build notes'))
+    URL = InvenTreeURLField(blank=True, help_text=_("Link to external URL"))
+
+    notes = MarkdownxField(blank=True, help_text=_("Extra build notes"))
 
     @property
     def output_count(self):
@@ -136,7 +148,7 @@ class Build(models.Model):
 
         allocations = []
 
-        for item in self.part.bom_items.all().prefetch_related('sub_part'):
+        for item in self.part.bom_items.all().prefetch_related("sub_part"):
 
             # How many parts required for this build?
             q_required = item.quantity * self.quantity
@@ -146,14 +158,18 @@ class Build(models.Model):
             # Ensure that the available stock items are in the correct location
             if self.take_from is not None:
                 # Filter for stock that is located downstream of the designated location
-                stock = stock.filter(location__in=[loc for loc in self.take_from.getUniqueChildren()])
+                stock = stock.filter(
+                    location__in=[loc for loc in self.take_from.getUniqueChildren()]
+                )
 
             # Only one StockItem to choose from? Default to that one!
             if len(stock) == 1:
                 stock_item = stock[0]
 
                 # Check that we have not already allocated this stock-item against this build
-                build_items = BuildItem.objects.filter(build=self, stock_item=stock_item)
+                build_items = BuildItem.objects.filter(
+                    build=self, stock_item=stock_item
+                )
 
                 if len(build_items) > 0:
                     continue
@@ -166,8 +182,8 @@ class Build(models.Model):
                         q_required = stock_item.quantity
 
                     allocation = {
-                        'stock_item': stock_item,
-                        'quantity': q_required,
+                        "stock_item": stock_item,
+                        "quantity": q_required,
                     }
 
                     allocations.append(allocation)
@@ -199,9 +215,8 @@ class Build(models.Model):
         for item in allocations:
             # Create a new allocation
             build_item = BuildItem(
-                build=self,
-                stock_item=item['stock_item'],
-                quantity=item['quantity'])
+                build=self, stock_item=item["stock_item"], quantity=item["quantity"]
+            )
 
             build_item.save()
 
@@ -213,17 +228,15 @@ class Build(models.Model):
         - Delete pending BuildItem objects
         """
 
-        for item in self.allocated_stock.all().prefetch_related('stock_item'):
-            
+        for item in self.allocated_stock.all().prefetch_related("stock_item"):
+
             # Subtract stock from the item
             item.stock_item.take_stock(
                 item.quantity,
                 user,
-                'Removed {n} items to build {m} x {part}'.format(
-                    n=item.quantity,
-                    m=self.quantity,
-                    part=self.part.full_name
-                )
+                "Removed {n} items to build {m} x {part}".format(
+                    n=item.quantity, m=self.quantity, part=self.part.full_name
+                ),
             )
 
             # Delete the item
@@ -234,9 +247,8 @@ class Build(models.Model):
 
         self.completed_by = user
 
-        notes = 'Built {q} on {now}'.format(
-            q=self.quantity,
-            now=str(datetime.now().date())
+        notes = "Built {q} on {now}".format(
+            q=self.quantity, now=str(datetime.now().date())
         )
 
         if self.part.trackable and serial_numbers:
@@ -248,8 +260,8 @@ class Build(models.Model):
                     location=location,
                     quantity=1,
                     serial=serial,
-                    batch=str(self.batch) if self.batch else '',
-                    notes=notes
+                    batch=str(self.batch) if self.batch else "",
+                    notes=notes,
                 )
 
                 item.save()
@@ -261,8 +273,8 @@ class Build(models.Model):
                 build=self,
                 location=location,
                 quantity=self.quantity,
-                batch=str(self.batch) if self.batch else '',
-                notes=notes
+                batch=str(self.batch) if self.batch else "",
+                notes=notes,
             )
 
             item.save()
@@ -285,9 +297,11 @@ class Build(models.Model):
         """ Calculate the total number of <part> currently allocated to this build
         """
 
-        allocated = BuildItem.objects.filter(build=self.id, stock_item__part=part.id).aggregate(Sum('quantity'))
+        allocated = BuildItem.objects.filter(
+            build=self.id, stock_item__part=part.id
+        ).aggregate(Sum("quantity"))
 
-        q = allocated['quantity__sum']
+        q = allocated["quantity__sum"]
 
         if q:
             return int(q)
@@ -311,12 +325,13 @@ class Build(models.Model):
         """ Returns a dict of parts required to build this part (BOM) """
         parts = []
 
-        for item in self.part.bom_items.all().prefetch_related('sub_part'):
-            part = {'part': item.sub_part,
-                    'per_build': item.quantity,
-                    'quantity': item.quantity * self.quantity,
-                    'allocated': self.getAllocatedQuantity(item.sub_part)
-                    }
+        for item in self.part.bom_items.all().prefetch_related("sub_part"):
+            part = {
+                "part": item.sub_part,
+                "per_build": item.quantity,
+                "quantity": item.quantity * self.quantity,
+                "allocated": self.getAllocatedQuantity(item.sub_part),
+            }
 
             parts.append(part)
 
@@ -327,7 +342,7 @@ class Build(models.Model):
         """ Return true if there are enough parts to supply build """
 
         for item in self.required_parts:
-            if item['part'].total_stock < item['quantity']:
+            if item["part"].total_stock < item["quantity"]:
                 return False
 
         return True
@@ -362,12 +377,12 @@ class BuildItem(models.Model):
 
     def get_absolute_url(self):
         # TODO - Fix!
-        return '/build/item/{pk}/'.format(pk=self.id)
+        return "/build/item/{pk}/".format(pk=self.id)
         # return reverse('build-detail', kwargs={'pk': self.id})
 
     class Meta:
         unique_together = [
-            ('build', 'stock_item'),
+            ("build", "stock_item"),
         ]
 
     def clean(self):
@@ -377,20 +392,29 @@ class BuildItem(models.Model):
         - StockItem.part must be in the BOM of the Part object referenced by Build
         - Allocation quantity cannot exceed available quantity
         """
-        
+
         super(BuildItem, self).clean()
 
         errors = {}
 
         try:
             if self.stock_item.part not in self.build.part.required_parts():
-                errors['stock_item'] = [_("Selected stock item not found in BOM for part '{p}'".format(p=self.build.part.full_name))]
-            
+                errors["stock_item"] = [
+                    _(
+                        "Selected stock item not found in BOM for part '{p}'".format(
+                            p=self.build.part.full_name
+                        )
+                    )
+                ]
+
             if self.quantity > self.stock_item.quantity:
-                errors['quantity'] = [_("Allocated quantity ({n}) must not exceed available quantity ({q})".format(
-                    n=self.quantity,
-                    q=self.stock_item.quantity
-                ))]
+                errors["quantity"] = [
+                    _(
+                        "Allocated quantity ({n}) must not exceed available quantity ({q})".format(
+                            n=self.quantity, q=self.stock_item.quantity
+                        )
+                    )
+                ]
 
         except StockItem.DoesNotExist:
             pass
@@ -404,15 +428,15 @@ class BuildItem(models.Model):
     build = models.ForeignKey(
         Build,
         on_delete=models.CASCADE,
-        related_name='allocated_stock',
-        help_text=_('Build to allocate parts')
+        related_name="allocated_stock",
+        help_text=_("Build to allocate parts"),
     )
 
     stock_item = models.ForeignKey(
-        'stock.StockItem',
+        "stock.StockItem",
         on_delete=models.CASCADE,
-        related_name='allocations',
-        help_text=_('Stock Item to allocate to build'),
+        related_name="allocations",
+        help_text=_("Stock Item to allocate to build"),
     )
 
     quantity = models.DecimalField(
@@ -420,5 +444,5 @@ class BuildItem(models.Model):
         max_digits=15,
         default=1,
         validators=[MinValueValidator(1)],
-        help_text=_('Stock quantity to allocate to build')
+        help_text=_("Stock quantity to allocate to build"),
     )

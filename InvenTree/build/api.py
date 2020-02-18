@@ -36,7 +36,7 @@ class BuildList(generics.ListCreateAPIView):
     ]
 
     filter_fields = [
-        'part',
+        "part",
     ]
 
 
@@ -66,13 +66,13 @@ class BuildItemList(generics.ListCreateAPIView):
         """
 
         # Does the user wish to filter by part?
-        part_pk = self.request.query_params.get('part', None)
+        part_pk = self.request.query_params.get("part", None)
 
         query = BuildItem.objects.all()
 
-        query = query.select_related('stock_item')
-        query = query.prefetch_related('stock_item__part')
-        query = query.prefetch_related('stock_item__part__category')
+        query = query.select_related("stock_item")
+        query = query.prefetch_related("stock_item__part")
+        query = query.prefetch_related("stock_item__part__category")
 
         if part_pk:
             query = query.filter(stock_item__part=part_pk)
@@ -87,20 +87,15 @@ class BuildItemList(generics.ListCreateAPIView):
         DjangoFilterBackend,
     ]
 
-    filter_fields = [
-        'build',
-        'stock_item'
-    ]
+    filter_fields = ["build", "stock_item"]
 
 
 build_item_api_urls = [
-    url('^.*$', BuildItemList.as_view(), name='api-build-item-list'),
+    url("^.*$", BuildItemList.as_view(), name="api-build-item-list"),
 ]
 
 build_api_urls = [
-    url(r'^item/?', include(build_item_api_urls)),
-
-    url(r'^(?P<pk>\d+)/', BuildDetail.as_view(), name='api-build-detail'),
-
-    url(r'^.*$', BuildList.as_view(), name='api-build-list'),
+    url(r"^item/?", include(build_item_api_urls)),
+    url(r"^(?P<pk>\d+)/", BuildDetail.as_view(), name="api-build-detail"),
+    url(r"^.*$", BuildList.as_view(), name="api-build-list"),
 ]

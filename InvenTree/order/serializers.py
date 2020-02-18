@@ -15,34 +15,30 @@ class POSerializer(InvenTreeModelSerializer):
 
     class Meta:
         model = PurchaseOrder
-        
+
         fields = [
-            'pk',
-            'supplier',
-            'reference',
-            'description',
-            'URL',
-            'status',
-            'notes',
+            "pk",
+            "supplier",
+            "reference",
+            "description",
+            "URL",
+            "status",
+            "notes",
         ]
-        
-        read_only_fields = [
-            'reference',
-            'status'
-        ]
+
+        read_only_fields = ["reference", "status"]
 
 
 class POLineItemSerializer(InvenTreeModelSerializer):
-
     class Meta:
         model = PurchaseOrderLineItem
 
         fields = [
-            'pk',
-            'quantity',
-            'reference',
-            'notes',
-            'order',
-            'part',
-            'received',
+            "pk",
+            "quantity",
+            "reference",
+            "notes",
+            "order",
+            "part",
+            "received",
         ]

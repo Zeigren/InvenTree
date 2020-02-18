@@ -4,9 +4,8 @@ Generic models which provide extra functionality over base Django model types.
 
 from __future__ import unicode_literals
 
-from django.db import models
 from django.contrib.contenttypes.models import ContentType
-
+from django.db import models
 from django.db.models.signals import pre_delete
 from django.dispatch import receiver
 
@@ -31,28 +30,25 @@ class InvenTreeTree(MPTTModel):
         abstract = True
 
         # Names must be unique at any given level in the tree
-        unique_together = ('name', 'parent')
+        unique_together = ("name", "parent")
 
     class MPTTMeta:
-        order_insertion_by = ['name']
+        order_insertion_by = ["name"]
 
     name = models.CharField(
-        blank=False,
-        max_length=100,
-        validators=[validate_tree_name]
+        blank=False, max_length=100, validators=[validate_tree_name]
     )
 
-    description = models.CharField(
-        blank=False,
-        max_length=250
-    )
+    description = models.CharField(blank=False, max_length=250)
 
     # When a category is deleted, graft the children onto its parent
-    parent = TreeForeignKey('self',
-                            on_delete=models.DO_NOTHING,
-                            blank=True,
-                            null=True,
-                            related_name='children')
+    parent = TreeForeignKey(
+        "self",
+        on_delete=models.DO_NOTHING,
+        blank=True,
+        null=True,
+        related_name="children",
+    )
 
     @property
     def item_count(self):
@@ -132,7 +128,7 @@ class InvenTreeTree(MPTTModel):
 
         e.g. "Top/Second/Third/This"
         """
-        return '/'.join([item.name for item in self.path])
+        return "/".join([item.name for item in self.path])
 
     def __str__(self):
         """ String representation of a category is the full path to that category """
@@ -140,7 +136,7 @@ class InvenTreeTree(MPTTModel):
         return "{path} - {desc}".format(path=self.pathstring, desc=self.description)
 
 
-@receiver(pre_delete, sender=InvenTreeTree, dispatch_uid='tree_pre_delete_log')
+@receiver(pre_delete, sender=InvenTreeTree, dispatch_uid="tree_pre_delete_log")
 def before_delete_tree_item(sender, instance, using, **kwargs):
     """ Receives pre_delete signal from InvenTreeTree object.
 

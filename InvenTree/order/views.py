@@ -5,29 +5,28 @@ Django views for interacting with Order app
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+import logging
+from decimal import Decimal, InvalidOperation
+
 from django.db import transaction
+from django.forms import HiddenInput
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.utils.translation import ugettext as _
 from django.views.generic import DetailView, ListView, UpdateView
-from django.forms import HiddenInput
 
-import logging
-from decimal import Decimal, InvalidOperation
-
-from .models import PurchaseOrder, PurchaseOrderLineItem
-from .admin import POLineItemResource
 from build.models import Build
 from company.models import Company, SupplierPart
-from stock.models import StockItem, StockLocation
 from part.models import Part
+from stock.models import StockItem, StockLocation
+
+from InvenTree.helpers import DownloadFile, str2bool
+from InvenTree.status_codes import OrderStatus
+from InvenTree.views import AjaxCreateView, AjaxDeleteView, AjaxUpdateView, AjaxView
 
 from . import forms as order_forms
-
-from InvenTree.views import AjaxView, AjaxCreateView, AjaxUpdateView, AjaxDeleteView
-from InvenTree.helpers import DownloadFile, str2bool
-
-from InvenTree.status_codes import OrderStatus
+from .admin import POLineItemResource
+from .models import PurchaseOrder, PurchaseOrderLineItem
 
 logger = logging.getLogger(__name__)
 
@@ -36,21 +35,21 @@ class PurchaseOrderIndex(ListView):
     """ List view for all purchase orders """
 
     model = PurchaseOrder
-    template_name = 'order/purchase_orders.html'
-    context_object_name = 'orders'
+    template_name = "order/purchase_orders.html"
+    context_object_name = "orders"
 
     def get_queryset(self):
         """ Retrieve the list of purchase orders,
         ensure that the most recent ones are returned first. """
 
-        queryset = PurchaseOrder.objects.all().order_by('-creation_date')
+        queryset = PurchaseOrder.objects.all().order_by("-creation_date")
 
         return queryset
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
 
-        ctx['OrderStatus'] = OrderStatus
+        ctx["OrderStatus"] = OrderStatus
 
         return ctx
 
@@ -58,14 +57,14 @@ class PurchaseOrderIndex(ListView):
 class PurchaseOrderDetail(DetailView):
     """ Detail view for a PurchaseOrder object """
 
-    context_object_name = 'order'
-    queryset = PurchaseOrder.objects.all().prefetch_related('lines')
-    template_name = 'order/purchase_order_detail.html'
+    context_object_name = "order"
+    queryset = PurchaseOrder.objects.all().prefetch_related("lines")
+    template_name = "order/purchase_order_detail.html"
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
 
-        ctx['OrderStatus'] = OrderStatus
+        ctx["OrderStatus"] = OrderStatus
 
         return ctx
 
@@ -73,21 +72,21 @@ class PurchaseOrderDetail(DetailView):
 class PurchaseOrderNotes(UpdateView):
     """ View for updating the 'notes' field of a PurchaseOrder """
 
-    context_object_name = 'order'
-    template_name = 'order/order_notes.html'
+    context_object_name = "order"
+    template_name = "order/order_notes.html"
     model = PurchaseOrder
 
-    fields = ['notes']
+    fields = ["notes"]
 
     def get_success_url(self):
 
-        return reverse('purchase-order-notes', kwargs={'pk': self.get_object().id})
+        return reverse("purchase-order-notes", kwargs={"pk": self.get_object().id})
 
     def get_context_data(self, **kwargs):
 
         ctx = super().get_context_data(**kwargs)
 
-        ctx['editing'] = str2bool(self.request.GET.get('edit', ''))
+        ctx["editing"] = str2bool(self.request.GET.get("edit", ""))
 
         return ctx
 
@@ -102,14 +101,14 @@ class PurchaseOrderCreate(AjaxCreateView):
     def get_initial(self):
         initials = super().get_initial().copy()
 
-        initials['status'] = OrderStatus.PENDING
+        initials["status"] = OrderStatus.PENDING
 
-        supplier_id = self.request.GET.get('supplier', None)
+        supplier_id = self.request.GET.get("supplier", None)
 
         if supplier_id:
             try:
                 supplier = Company.objects.get(id=supplier_id)
-                initials['supplier'] = supplier
+                initials["supplier"] = supplier
             except (Company.DoesNotExist, ValueError):
                 pass
 
@@ -126,7 +125,7 @@ class PurchaseOrderEdit(AjaxUpdateView):
     """ View for editing a PurchaseOrder using a modal form """
 
     model = PurchaseOrder
-    ajax_form_title = _('Edit Purchase Order')
+    ajax_form_title = _("Edit Purchase Order")
     form_class = order_forms.EditPurchaseOrderForm
 
     def get_form(self):
@@ -137,7 +136,7 @@ class PurchaseOrderEdit(AjaxUpdateView):
 
         # Prevent user from editing supplier if there are already lines in the order
         if order.lines.count() > 0 or not order.status == OrderStatus.PENDING:
-            form.fields['supplier'].widget = HiddenInput()
+            form.fields["supplier"].widget = HiddenInput()
 
         return form
 
@@ -146,8 +145,8 @@ class PurchaseOrderCancel(AjaxUpdateView):
     """ View for cancelling a purchase order """
 
     model = PurchaseOrder
-    ajax_form_title = _('Cancel Order')
-    ajax_template_name = 'order/order_cancel.html'
+    ajax_form_title = _("Cancel Order")
+    ajax_template_name = "order/order_cancel.html"
     form_class = order_forms.CancelPurchaseOrderForm
 
     def post(self, request, *args, **kwargs):
@@ -156,18 +155,16 @@ class PurchaseOrderCancel(AjaxUpdateView):
         order = self.get_object()
         form = self.get_form()
 
-        confirm = str2bool(request.POST.get('confirm', False))
+        confirm = str2bool(request.POST.get("confirm", False))
 
         valid = False
 
         if not confirm:
-            form.errors['confirm'] = [_('Confirm order cancellation')]
+            form.errors["confirm"] = [_("Confirm order cancellation")]
         else:
             valid = True
 
-        data = {
-            'form_valid': valid
-        }
+        data = {"form_valid": valid}
 
         if valid:
             order.cancel_order()
@@ -179,7 +176,7 @@ class PurchaseOrderIssue(AjaxUpdateView):
     """ View for changing a purchase order from 'PENDING' to 'ISSUED' """
 
     model = PurchaseOrder
-    ajax_form_title = _('Issue Order')
+    ajax_form_title = _("Issue Order")
     ajax_template_name = "order/order_issue.html"
     form_class = order_forms.IssuePurchaseOrderForm
 
@@ -189,17 +186,17 @@ class PurchaseOrderIssue(AjaxUpdateView):
         order = self.get_object()
         form = self.get_form()
 
-        confirm = str2bool(request.POST.get('confirm', False))
+        confirm = str2bool(request.POST.get("confirm", False))
 
         valid = False
 
         if not confirm:
-            form.errors['confirm'] = [_('Confirm order placement')]
+            form.errors["confirm"] = [_("Confirm order placement")]
         else:
             valid = True
 
         data = {
-            'form_valid': valid,
+            "form_valid": valid,
         }
 
         if valid:
@@ -216,28 +213,26 @@ class PurchaseOrderComplete(AjaxUpdateView):
     model = PurchaseOrder
     ajax_template_name = "order/order_complete.html"
     ajax_form_title = _("Complete Order")
-    context_object_name = 'order'
+    context_object_name = "order"
 
     def get_context_data(self):
 
         ctx = {
-            'order': self.get_object(),
+            "order": self.get_object(),
         }
 
         return ctx
 
     def post(self, request, *args, **kwargs):
 
-        confirm = str2bool(request.POST.get('confirm', False))
+        confirm = str2bool(request.POST.get("confirm", False))
 
         if confirm:
             po = self.get_object()
             po.status = OrderStatus.COMPLETE
             po.save()
 
-        data = {
-            'form_valid': confirm
-        }
+        data = {"form_valid": confirm}
 
         form = self.get_form()
 
@@ -255,14 +250,12 @@ class PurchaseOrderExport(AjaxView):
 
     def get(self, request, *args, **kwargs):
 
-        order = get_object_or_404(PurchaseOrder, pk=self.kwargs['pk'])
+        order = get_object_or_404(PurchaseOrder, pk=self.kwargs["pk"])
 
-        export_format = request.GET.get('format', 'csv')
+        export_format = request.GET.get("format", "csv")
 
-        filename = '{order} - {company}.{fmt}'.format(
-            order=str(order),
-            company=order.supplier.name,
-            fmt=export_format
+        filename = "{order} - {company}.{fmt}".format(
+            order=str(order), company=order.supplier.name, fmt=export_format
         )
 
         dataset = POLineItemResource().export(queryset=order.lines.all())
@@ -290,8 +283,8 @@ class PurchaseOrderReceive(AjaxUpdateView):
     def get_context_data(self):
 
         ctx = {
-            'order': self.order,
-            'lines': self.lines,
+            "order": self.order,
+            "lines": self.lines,
         }
 
         return ctx
@@ -304,8 +297,8 @@ class PurchaseOrderReceive(AjaxUpdateView):
 
         lines = None
 
-        if 'line' in self.request.GET:
-            line_id = self.request.GET.get('line')
+        if "line" in self.request.GET:
+            line_id = self.request.GET.get("line")
 
             try:
                 lines = PurchaseOrderLineItem.objects.filter(pk=line_id)
@@ -326,7 +319,7 @@ class PurchaseOrderReceive(AjaxUpdateView):
         """
 
         self.request = request
-        self.order = get_object_or_404(PurchaseOrder, pk=self.kwargs['pk'])
+        self.order = get_object_or_404(PurchaseOrder, pk=self.kwargs["pk"])
 
         self.lines = self.get_lines()
 
@@ -343,7 +336,7 @@ class PurchaseOrderReceive(AjaxUpdateView):
         """
 
         self.request = request
-        self.order = get_object_or_404(PurchaseOrder, pk=self.kwargs['pk'])
+        self.order = get_object_or_404(PurchaseOrder, pk=self.kwargs["pk"])
 
         self.lines = []
         self.destination = None
@@ -351,8 +344,8 @@ class PurchaseOrderReceive(AjaxUpdateView):
         msg = _("Items received")
 
         # Extract the destination for received parts
-        if 'location' in request.POST:
-            pk = request.POST['location']
+        if "location" in request.POST:
+            pk = request.POST["location"]
             try:
                 self.destination = StockLocation.objects.get(id=pk)
             except (StockLocation.DoesNotExist, ValueError):
@@ -366,8 +359,8 @@ class PurchaseOrderReceive(AjaxUpdateView):
 
         # Extract information on all submitted line items
         for item in request.POST:
-            if item.startswith('line-'):
-                pk = item.replace('line-', '')
+            if item.startswith("line-"):
+                pk = item.replace("line-", "")
 
                 try:
                     line = PurchaseOrderLineItem.objects.get(id=pk)
@@ -413,8 +406,8 @@ class PurchaseOrderReceive(AjaxUpdateView):
             self.receive_parts()
 
         data = {
-            'form_valid': errors is False,
-            'success': msg,
+            "form_valid": errors is False,
+            "success": msg,
         }
 
         return self.renderJsonResponse(request, data=data, form=self.get_form())
@@ -430,7 +423,9 @@ class PurchaseOrderReceive(AjaxUpdateView):
             if not line.part:
                 continue
 
-            self.order.receive_line_item(line, self.destination, line.receive_quantity, self.request.user)
+            self.order.receive_line_item(
+                line, self.destination, line.receive_quantity, self.request.user
+            )
 
 
 class OrderParts(AjaxView):
@@ -446,7 +441,7 @@ class OrderParts(AjaxView):
     """
 
     ajax_form_title = _("Order Parts")
-    ajax_template_name = 'order/order_wizard/select_parts.html'
+    ajax_template_name = "order/order_wizard/select_parts.html"
 
     # List of Parts we wish to order
     parts = []
@@ -456,8 +451,10 @@ class OrderParts(AjaxView):
 
         ctx = {}
 
-        ctx['parts'] = sorted(self.parts, key=lambda part: int(part.order_quantity), reverse=True)
-        ctx['suppliers'] = self.suppliers
+        ctx["parts"] = sorted(
+            self.parts, key=lambda part: int(part.order_quantity), reverse=True
+        )
+        ctx["suppliers"] = self.suppliers
 
         return ctx
 
@@ -485,7 +482,7 @@ class OrderParts(AjaxView):
                 supplier.order_items = []
                 supplier.selected_purchase_order = None
                 suppliers[supplier.name] = supplier
-                
+
             suppliers[supplier.name].order_items.append(part)
 
         self.suppliers = [suppliers[key] for key in suppliers.keys()]
@@ -500,25 +497,25 @@ class OrderParts(AjaxView):
         part_ids = set()
 
         # User has passed a list of stock items
-        if 'stock[]' in self.request.GET:
+        if "stock[]" in self.request.GET:
 
-            stock_id_list = self.request.GET.getlist('stock[]')
-            
+            stock_id_list = self.request.GET.getlist("stock[]")
+
             """ Get a list of all the parts associated with the stock items.
             - Base part must be purchaseable.
             - Return a set of corresponding Part IDs
             """
             stock_items = StockItem.objects.filter(
-                part__purchaseable=True,
-                id__in=stock_id_list)
+                part__purchaseable=True, id__in=stock_id_list
+            )
 
             for item in stock_items:
                 part_ids.add(item.part.id)
 
         # User has passed a single Part ID
-        elif 'part' in self.request.GET:
+        elif "part" in self.request.GET:
             try:
-                part_id = self.request.GET.get('part')
+                part_id = self.request.GET.get("part")
                 part = Part.objects.get(id=part_id)
 
                 part_ids.add(part.id)
@@ -527,19 +524,17 @@ class OrderParts(AjaxView):
                 pass
 
         # User has passed a list of part ID values
-        elif 'parts[]' in self.request.GET:
-            part_id_list = self.request.GET.getlist('parts[]')
+        elif "parts[]" in self.request.GET:
+            part_id_list = self.request.GET.getlist("parts[]")
 
-            parts = Part.objects.filter(
-                purchaseable=True,
-                id__in=part_id_list)
+            parts = Part.objects.filter(purchaseable=True, id__in=part_id_list)
 
             for part in parts:
                 part_ids.add(part.id)
 
         # User has provided a Build ID
-        elif 'build' in self.request.GET:
-            build_id = self.request.GET.get('build')
+        elif "build" in self.request.GET:
+            build_id = self.request.GET.get("build")
             try:
                 build = Build.objects.get(id=build_id)
 
@@ -601,20 +596,20 @@ class OrderParts(AjaxView):
 
         # Extract part information from the form
         for item in self.request.POST:
-            
-            if item.startswith('part-supplier-'):
-                
-                pk = item.replace('part-supplier-', '')
-                
+
+            if item.startswith("part-supplier-"):
+
+                pk = item.replace("part-supplier-", "")
+
                 # Check that the part actually exists
                 try:
                     part = Part.objects.get(id=pk)
                 except (Part.DoesNotExist, ValueError):
                     continue
-                
+
                 supplier_part_id = self.request.POST[item]
-                
-                quantity = self.request.POST.get('part-quantity-' + str(pk), 0)
+
+                quantity = self.request.POST.get("part-quantity-" + str(pk), 0)
 
                 # Ensure a valid supplier has been passed
                 try:
@@ -643,9 +638,9 @@ class OrderParts(AjaxView):
                 elif quantity < 0:
                     part_errors = True
 
-            elif item.startswith('purchase-order-'):
+            elif item.startswith("purchase-order-"):
                 # Which purchase order is selected for a given supplier?
-                pk = item.replace('purchase-order-', '')
+                pk = item.replace("purchase-order-", "")
 
                 # Check that the Supplier actually exists
                 try:
@@ -662,31 +657,33 @@ class OrderParts(AjaxView):
                 except (PurchaseOrder.DoesNotExist, ValueError):
                     purchase_order = None
 
-                supplier.selected_purchase_order = purchase_order.id if purchase_order else None
+                supplier.selected_purchase_order = (
+                    purchase_order.id if purchase_order else None
+                )
 
                 self.suppliers.append(supplier)
 
                 if supplier.selected_purchase_order is None:
                     supplier_errors = True
 
-        form_step = request.POST.get('form_step')
+        form_step = request.POST.get("form_step")
 
         # Map parts to suppliers
         self.get_suppliers()
 
         valid = False
 
-        if form_step == 'select_parts':
+        if form_step == "select_parts":
             # No errors? Proceed to PO selection form
             if part_errors is False:
-                self.ajax_template_name = 'order/order_wizard/select_pos.html'
+                self.ajax_template_name = "order/order_wizard/select_pos.html"
 
             else:
-                self.ajax_template_name = 'order/order_wizard/select_parts.html'
+                self.ajax_template_name = "order/order_wizard/select_parts.html"
 
-        elif form_step == 'select_purchase_orders':
+        elif form_step == "select_purchase_orders":
 
-            self.ajax_template_name = 'order/order_wizard/select_pos.html'
+            self.ajax_template_name = "order/order_wizard/select_pos.html"
 
             valid = part_errors is False and supplier_errors is False
 
@@ -695,8 +692,8 @@ class OrderParts(AjaxView):
                 self.order_items()
 
         data = {
-            'form_valid': valid,
-            'success': 'Ordered {n} parts'.format(n=len(self.parts))
+            "form_valid": valid,
+            "success": "Ordered {n} parts".format(n=len(self.parts)),
         }
 
         return self.renderJsonResponse(self.request, data=data)
@@ -711,7 +708,11 @@ class OrderParts(AjaxView):
             try:
                 order = PurchaseOrder.objects.get(pk=supplier.selected_purchase_order)
             except PurchaseOrder.DoesNotExist:
-                logger.critical('Could not add items to purchase order {po} - Order does not exist'.format(po=supplier.selected_purchase_order))
+                logger.critical(
+                    "Could not add items to purchase order {po} - Order does not exist".format(
+                        po=supplier.selected_purchase_order
+                    )
+                )
                 continue
 
             for item in supplier.order_items:
@@ -722,16 +723,20 @@ class OrderParts(AjaxView):
                     if quantity <= 0:
                         continue
                 except ValueError:
-                    logger.warning("Did not add part to purchase order - incorrect quantity")
+                    logger.warning(
+                        "Did not add part to purchase order - incorrect quantity"
+                    )
                     continue
 
                 # Check that the supplier part does actually exist
                 try:
                     supplier_part = SupplierPart.objects.get(pk=item.order_supplier)
                 except SupplierPart.DoesNotExist:
-                    logger.critical("Could not add part '{part}' to purchase order - selected supplier part '{sp}' does not exist.".format(
-                        part=item,
-                        sp=item.order_supplier))
+                    logger.critical(
+                        "Could not add part '{part}' to purchase order - selected supplier part '{sp}' does not exist.".format(
+                            part=item, sp=item.order_supplier
+                        )
+                    )
                     continue
 
                 order.add_line_item(supplier_part, quantity)
@@ -742,9 +747,9 @@ class POLineItemCreate(AjaxCreateView):
     """
 
     model = PurchaseOrderLineItem
-    context_object_name = 'line'
+    context_object_name = "line"
     form_class = order_forms.EditPurchaseOrderLineItemForm
-    ajax_form_title = _('Add Line Item')
+    ajax_form_title = _("Add Line Item")
 
     def post(self, request, *arg, **kwargs):
 
@@ -755,16 +760,16 @@ class POLineItemCreate(AjaxCreateView):
         valid = form.is_valid()
 
         # Extract the SupplierPart ID from the form
-        part_id = form['part'].value()
+        part_id = form["part"].value()
 
         # Extract the Order ID from the form
-        order_id = form['order'].value()
+        order_id = form["order"].value()
 
         try:
             order = PurchaseOrder.objects.get(id=order_id)
         except (ValueError, PurchaseOrder.DoesNotExist):
             order = None
-            form.errors['order'] = [_('Invalid Purchase Order')]
+            form.errors["order"] = [_("Invalid Purchase Order")]
             valid = False
 
         try:
@@ -772,25 +777,25 @@ class POLineItemCreate(AjaxCreateView):
 
             if order is not None:
                 if not sp.supplier == order.supplier:
-                    form.errors['part'] = [_('Supplier must match for Part and Order')]
+                    form.errors["part"] = [_("Supplier must match for Part and Order")]
                     valid = False
 
         except (SupplierPart.DoesNotExist, ValueError):
             valid = False
-            form.errors['part'] = [_('Invalid SupplierPart selection')]
+            form.errors["part"] = [_("Invalid SupplierPart selection")]
 
         data = {
-            'form_valid': valid,
+            "form_valid": valid,
         }
 
         if valid:
             self.object = form.save()
 
-            data['pk'] = self.object.pk
-            data['text'] = str(self.object)
+            data["pk"] = self.object.pk
+            data["text"] = str(self.object)
         else:
             self.object = None
-        
+
         return self.renderJsonResponse(request, form, data,)
 
     def get_form(self):
@@ -800,16 +805,16 @@ class POLineItemCreate(AjaxCreateView):
         form = super().get_form()
 
         # Limit the available to orders to ones that are PENDING
-        query = form.fields['order'].queryset
+        query = form.fields["order"].queryset
         query = query.filter(status=OrderStatus.PENDING)
-        form.fields['order'].queryset = query
+        form.fields["order"].queryset = query
 
-        order_id = form['order'].value()
+        order_id = form["order"].value()
 
         try:
             order = PurchaseOrder.objects.get(id=order_id)
 
-            query = form.fields['part'].queryset
+            query = form.fields["part"].queryset
 
             # Only allow parts from the selected supplier
             query = query.filter(supplier=order.supplier.id)
@@ -823,8 +828,8 @@ class POLineItemCreate(AjaxCreateView):
             # Remove parts that are already in the order
             query = query.exclude(id__in=exclude)
 
-            form.fields['part'].queryset = query
-            form.fields['order'].widget = HiddenInput()
+            form.fields["part"].queryset = query
+            form.fields["order"].widget = HiddenInput()
         except (ValueError, PurchaseOrder.DoesNotExist):
             pass
 
@@ -839,12 +844,12 @@ class POLineItemCreate(AjaxCreateView):
 
         initials = super().get_initial().copy()
 
-        order_id = self.request.GET.get('order', None)
+        order_id = self.request.GET.get("order", None)
 
         if order_id:
             try:
                 order = PurchaseOrder.objects.get(id=order_id)
-                initials['order'] = order
+                initials["order"] = order
 
             except PurchaseOrder.DoesNotExist:
                 pass
@@ -858,14 +863,14 @@ class POLineItemEdit(AjaxUpdateView):
 
     model = PurchaseOrderLineItem
     form_class = order_forms.EditPurchaseOrderLineItemForm
-    ajax_template_name = 'modal_form.html'
-    ajax_form_title = _('Edit Line Item')
+    ajax_template_name = "modal_form.html"
+    ajax_form_title = _("Edit Line Item")
 
     def get_form(self):
         form = super().get_form()
 
         # Prevent user from editing order once line item is assigned
-        form.fields.pop('order')
+        form.fields.pop("order")
 
         return form
 
@@ -875,10 +880,10 @@ class POLineItemDelete(AjaxDeleteView):
     """
 
     model = PurchaseOrderLineItem
-    ajax_form_title = _('Delete Line Item')
-    ajax_template_name = 'order/po_lineitem_delete.html'
-    
+    ajax_form_title = _("Delete Line Item")
+    ajax_template_name = "order/po_lineitem_delete.html"
+
     def get_data(self):
         return {
-            'danger': _('Deleted line item'),
+            "danger": _("Deleted line item"),
         }

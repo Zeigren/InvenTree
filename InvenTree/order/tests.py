@@ -1,12 +1,13 @@
-from django.test import TestCase
 import django.core.exceptions as django_exceptions
+from django.test import TestCase
 
-from part.models import Part
-from .models import PurchaseOrder, PurchaseOrderLineItem
-from stock.models import StockLocation
 from company.models import SupplierPart
+from part.models import Part
+from stock.models import StockLocation
 
 from InvenTree.status_codes import OrderStatus
+
+from .models import PurchaseOrder, PurchaseOrderLineItem
 
 
 class OrderTest(TestCase):
@@ -15,13 +16,13 @@ class OrderTest(TestCase):
     """
 
     fixtures = [
-        'company',
-        'supplier_part',
-        'category',
-        'part',
-        'location',
-        'stock',
-        'order'
+        "company",
+        "supplier_part",
+        "category",
+        "part",
+        "location",
+        "stock",
+        "order",
     ]
 
     def test_basics(self):
@@ -29,10 +30,10 @@ class OrderTest(TestCase):
 
         order = PurchaseOrder.objects.get(pk=1)
 
-        self.assertEqual(order.get_absolute_url(), '/order/purchase-order/1/')
+        self.assertEqual(order.get_absolute_url(), "/order/purchase-order/1/")
 
-        self.assertEqual(str(order), 'PO 1')
-        
+        self.assertEqual(str(order), "PO 1")
+
         line = PurchaseOrderLineItem.objects.get(pk=1)
 
         self.assertEqual(str(line), "100 x ACME0001 from ACME (for PO 1)")
@@ -40,7 +41,7 @@ class OrderTest(TestCase):
     def test_on_order(self):
         """ There should be 3 separate items on order for the M2x4 LPHS part """
 
-        part = Part.objects.get(name='M2x4 LPHS')
+        part = Part.objects.get(name="M2x4 LPHS")
 
         open_orders = []
 
@@ -60,7 +61,7 @@ class OrderTest(TestCase):
         self.assertEqual(order.status, OrderStatus.PENDING)
         self.assertEqual(order.lines.count(), 3)
 
-        sku = SupplierPart.objects.get(SKU='ACME-WIDGET')
+        sku = SupplierPart.objects.get(SKU="ACME-WIDGET")
         part = sku.part
 
         # Try to order some invalid things
@@ -68,7 +69,7 @@ class OrderTest(TestCase):
             order.add_line_item(sku, -999)
 
         with self.assertRaises(django_exceptions.ValidationError):
-            order.add_line_item(sku, 'not a number')
+            order.add_line_item(sku, "not a number")
 
         # Order the part
         self.assertEqual(part.on_order, 0)
@@ -84,15 +85,15 @@ class OrderTest(TestCase):
         self.assertEqual(part.on_order, 150)
 
         # Try to order a supplier part from the wrong supplier
-        sku = SupplierPart.objects.get(SKU='ZERG-WIDGET')
-        
+        sku = SupplierPart.objects.get(SKU="ZERG-WIDGET")
+
         with self.assertRaises(django_exceptions.ValidationError):
             order.add_line_item(sku, 99)
 
     def test_receive(self):
         """ Test order receiving functions """
 
-        part = Part.objects.get(name='M2x4 LPHS')
+        part = Part.objects.get(name="M2x4 LPHS")
 
         # Receive some items
         line = PurchaseOrderLineItem.objects.get(id=1)
@@ -124,8 +125,8 @@ class OrderTest(TestCase):
             order.receive_line_item(line, loc, -10, user=None)
 
         with self.assertRaises(django_exceptions.ValidationError):
-            order.receive_line_item(line, loc, 'not a number', user=None)
-        
+            order.receive_line_item(line, loc, "not a number", user=None)
+
         # Receive the rest of the items
         order.receive_line_item(line, loc, 50, user=None)
 

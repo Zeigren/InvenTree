@@ -5,41 +5,32 @@ Part database model definitions
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+import hashlib
 import os
+from datetime import datetime
 
-from django.utils.translation import gettext_lazy as _
-from django.core.exceptions import ValidationError
-from django.urls import reverse
 from django.conf import settings
-
-from django.db import models, transaction
-from django.db.models import Sum
-from django.db.models import prefetch_related_objects
-from django.core.validators import MinValueValidator
-
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator
+from django.db import models, transaction
+from django.db.models import Sum, prefetch_related_objects
 from django.db.models.signals import pre_delete
 from django.dispatch import receiver
-
-from markdownx.models import MarkdownxField
-
-from django_cleanup import cleanup
-
-from mptt.models import TreeForeignKey
-
-from datetime import datetime
-from fuzzywuzzy import fuzz
-import hashlib
-
-from InvenTree import helpers
-from InvenTree import validators
-from InvenTree.models import InvenTreeTree
-from InvenTree.fields import InvenTreeURLField
-from InvenTree.helpers import decimal2string
-
-from InvenTree.status_codes import BuildStatus, StockStatus, OrderStatus
+from django.urls import reverse
+from django.utils.translation import gettext_lazy as _
 
 from company.models import SupplierPart
+from django_cleanup import cleanup
+from fuzzywuzzy import fuzz
+from markdownx.models import MarkdownxField
+from mptt.models import TreeForeignKey
+
+from InvenTree import helpers, validators
+from InvenTree.fields import InvenTreeURLField
+from InvenTree.helpers import decimal2string
+from InvenTree.models import InvenTreeTree
+from InvenTree.status_codes import BuildStatus, OrderStatus, StockStatus
 
 
 class PartCategory(InvenTreeTree):
@@ -53,16 +44,22 @@ class PartCategory(InvenTreeTree):
     """
 
     default_location = TreeForeignKey(
-        'stock.StockLocation', related_name="default_categories",
-        null=True, blank=True,
+        "stock.StockLocation",
+        related_name="default_categories",
+        null=True,
+        blank=True,
         on_delete=models.SET_NULL,
-        help_text=_('Default location for parts in this category')
+        help_text=_("Default location for parts in this category"),
     )
 
-    default_keywords = models.CharField(blank=True, max_length=250, help_text=_('Default keywords for parts in this category'))
+    default_keywords = models.CharField(
+        blank=True,
+        max_length=250,
+        help_text=_("Default keywords for parts in this category"),
+    )
 
     def get_absolute_url(self):
-        return reverse('category-detail', kwargs={'pk': self.id})
+        return reverse("category-detail", kwargs={"pk": self.id})
 
     class Meta:
         verbose_name = "Part Category"
@@ -77,7 +74,9 @@ class PartCategory(InvenTreeTree):
 
         if cascade:
             """ Select any parts which exist in this category or any child categories """
-            query = Part.objects.filter(category__in=self.getUniqueChildren(include_self=True))
+            query = Part.objects.filter(
+                category__in=self.getUniqueChildren(include_self=True)
+            )
         else:
             query = Part.objects.filter(category=self.pk)
 
@@ -105,7 +104,7 @@ class PartCategory(InvenTreeTree):
         return self.partcount() > 0
 
 
-@receiver(pre_delete, sender=PartCategory, dispatch_uid='partcategory_delete_log')
+@receiver(pre_delete, sender=PartCategory, dispatch_uid="partcategory_delete_log")
 def before_delete_part_category(sender, instance, using, **kwargs):
     """ Receives before_delete signal for PartCategory object
 
@@ -137,7 +136,7 @@ def rename_part_image(instance, filename):
         Cleaned filename in format part_<n>_img
     """
 
-    base = 'part_images'
+    base = "part_images"
     fname = os.path.basename(filename)
 
     return os.path.join(base, fname)
@@ -181,15 +180,12 @@ def match_part_names(match, threshold=80, reverse=True, compare_length=False):
             l_min = min(len(match), len(compare))
             l_max = max(len(match), len(compare))
 
-            ratio *= (l_min / l_max)
+            ratio *= l_min / l_max
 
         if ratio >= threshold:
-            matches.append({
-                'part': part,
-                'ratio': ratio
-            })
+            matches.append({"part": part, "ratio": ratio})
 
-    matches = sorted(matches, key=lambda item: item['ratio'], reverse=reverse)
+    matches = sorted(matches, key=lambda item: item["ratio"], reverse=reverse)
 
     return matches
 
@@ -244,7 +240,11 @@ class Part(models.Model):
 
             if previous.image and not self.image == previous.image:
                 # Are there any (other) parts which reference the image?
-                n_refs = Part.objects.filter(image=previous.image).exclude(pk=self.pk).count()
+                n_refs = (
+                    Part.objects.filter(image=previous.image)
+                    .exclude(pk=self.pk)
+                    .count()
+                )
 
                 if n_refs == 0:
                     previous.image.delete(save=False)
@@ -269,13 +269,13 @@ class Part(models.Model):
 
         if self.IPN:
             elements.append(self.IPN)
-        
+
         elements.append(self.name)
 
         if self.revision:
             elements.append(self.revision)
 
-        return ' | '.join(elements)
+        return " | ".join(elements)
 
     def set_category(self, category):
 
@@ -288,7 +288,7 @@ class Part(models.Model):
 
     def get_absolute_url(self):
         """ Return the web URL for viewing this part """
-        return reverse('part-detail', kwargs={'pk': self.id})
+        return reverse("part-detail", kwargs={"pk": self.id})
 
     def get_image_url(self):
         """ Return the URL of the image for this part """
@@ -296,7 +296,7 @@ class Part(models.Model):
         if self.image:
             return os.path.join(settings.MEDIA_URL, str(self.image.url))
         else:
-            return os.path.join(settings.STATIC_URL, 'img/blank_image.png')
+            return os.path.join(settings.STATIC_URL, "img/blank_image.png")
 
     def validate_unique(self, exclude=None):
         """ Validate that a part is 'unique'.
@@ -317,15 +317,14 @@ class Part(models.Model):
             parts = Part.objects.exclude(id=self.id).filter(
                 name__iexact=self.name,
                 IPN__iexact=self.IPN,
-                revision__iexact=self.revision)
+                revision__iexact=self.revision,
+            )
 
             if parts.exists():
                 msg = _("Part must be unique for name, IPN and revision")
-                raise ValidationError({
-                    "name": msg,
-                    "IPN": msg,
-                    "revision": msg,
-                })
+                raise ValidationError(
+                    {"name": msg, "IPN": msg, "revision": msg,}
+                )
         except Part.DoesNotExist:
             pass
 
@@ -333,48 +332,82 @@ class Part(models.Model):
         """ Perform cleaning operations for the Part model """
 
         if self.is_template and self.variant_of is not None:
-            raise ValidationError({
-                'is_template': _("Part cannot be a template part if it is a variant of another part"),
-                'variant_of': _("Part cannot be a variant of another part if it is already a template"),
-            })
+            raise ValidationError(
+                {
+                    "is_template": _(
+                        "Part cannot be a template part if it is a variant of another part"
+                    ),
+                    "variant_of": _(
+                        "Part cannot be a variant of another part if it is already a template"
+                    ),
+                }
+            )
 
-    name = models.CharField(max_length=100, blank=False,
-                            help_text=_('Part name'),
-                            validators=[validators.validate_part_name]
-                            )
+    name = models.CharField(
+        max_length=100,
+        blank=False,
+        help_text=_("Part name"),
+        validators=[validators.validate_part_name],
+    )
 
-    is_template = models.BooleanField(default=False, help_text=_('Is this part a template part?'))
+    is_template = models.BooleanField(
+        default=False, help_text=_("Is this part a template part?")
+    )
 
-    variant_of = models.ForeignKey('part.Part', related_name='variants',
-                                   null=True, blank=True,
-                                   limit_choices_to={
-                                       'is_template': True,
-                                       'active': True,
-                                   },
-                                   on_delete=models.SET_NULL,
-                                   help_text=_('Is this part a variant of another part?'))
+    variant_of = models.ForeignKey(
+        "part.Part",
+        related_name="variants",
+        null=True,
+        blank=True,
+        limit_choices_to={"is_template": True, "active": True,},
+        on_delete=models.SET_NULL,
+        help_text=_("Is this part a variant of another part?"),
+    )
 
-    description = models.CharField(max_length=250, blank=False, help_text=_('Part description'))
+    description = models.CharField(
+        max_length=250, blank=False, help_text=_("Part description")
+    )
 
-    keywords = models.CharField(max_length=250, blank=True, help_text=_('Part keywords to improve visibility in search results'))
+    keywords = models.CharField(
+        max_length=250,
+        blank=True,
+        help_text=_("Part keywords to improve visibility in search results"),
+    )
 
-    category = TreeForeignKey(PartCategory, related_name='parts',
-                              null=True, blank=True,
-                              on_delete=models.DO_NOTHING,
-                              help_text=_('Part category'))
+    category = TreeForeignKey(
+        PartCategory,
+        related_name="parts",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        help_text=_("Part category"),
+    )
 
-    IPN = models.CharField(max_length=100, blank=True, help_text=_('Internal Part Number'), validators=[validators.validate_part_ipn])
+    IPN = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text=_("Internal Part Number"),
+        validators=[validators.validate_part_ipn],
+    )
 
-    revision = models.CharField(max_length=100, blank=True, help_text=_('Part revision or version number'))
+    revision = models.CharField(
+        max_length=100, blank=True, help_text=_("Part revision or version number")
+    )
 
-    URL = InvenTreeURLField(blank=True, help_text=_('Link to extenal URL'))
+    URL = InvenTreeURLField(blank=True, help_text=_("Link to extenal URL"))
 
-    image = models.ImageField(upload_to=rename_part_image, max_length=255, null=True, blank=True)
+    image = models.ImageField(
+        upload_to=rename_part_image, max_length=255, null=True, blank=True
+    )
 
-    default_location = TreeForeignKey('stock.StockLocation', on_delete=models.SET_NULL,
-                                      blank=True, null=True,
-                                      help_text=_('Where is this item normally stored?'),
-                                      related_name='default_parts')
+    default_location = TreeForeignKey(
+        "stock.StockLocation",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        help_text=_("Where is this item normally stored?"),
+        related_name="default_parts",
+    )
 
     def get_default_location(self):
         """ Get the default location for a Part (may be None).
@@ -414,36 +447,72 @@ class Part(models.Model):
         # Default to None if there are multiple suppliers to choose from
         return None
 
-    default_supplier = models.ForeignKey(SupplierPart,
-                                         on_delete=models.SET_NULL,
-                                         blank=True, null=True,
-                                         help_text=_('Default supplier part'),
-                                         related_name='default_parts')
+    default_supplier = models.ForeignKey(
+        SupplierPart,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        help_text=_("Default supplier part"),
+        related_name="default_parts",
+    )
 
-    minimum_stock = models.PositiveIntegerField(default=0, validators=[MinValueValidator(0)], help_text=_('Minimum allowed stock level'))
+    minimum_stock = models.PositiveIntegerField(
+        default=0,
+        validators=[MinValueValidator(0)],
+        help_text=_("Minimum allowed stock level"),
+    )
 
-    units = models.CharField(max_length=20, default="", blank=True, help_text=_('Stock keeping units for this part'))
+    units = models.CharField(
+        max_length=20,
+        default="",
+        blank=True,
+        help_text=_("Stock keeping units for this part"),
+    )
 
-    assembly = models.BooleanField(default=False, verbose_name='Assembly', help_text=_('Can this part be built from other parts?'))
+    assembly = models.BooleanField(
+        default=False,
+        verbose_name="Assembly",
+        help_text=_("Can this part be built from other parts?"),
+    )
 
-    component = models.BooleanField(default=True, verbose_name='Component', help_text=_('Can this part be used to build other parts?'))
+    component = models.BooleanField(
+        default=True,
+        verbose_name="Component",
+        help_text=_("Can this part be used to build other parts?"),
+    )
 
-    trackable = models.BooleanField(default=False, help_text=_('Does this part have tracking for unique items?'))
+    trackable = models.BooleanField(
+        default=False, help_text=_("Does this part have tracking for unique items?")
+    )
 
-    purchaseable = models.BooleanField(default=True, help_text=_('Can this part be purchased from external suppliers?'))
+    purchaseable = models.BooleanField(
+        default=True, help_text=_("Can this part be purchased from external suppliers?")
+    )
 
-    salable = models.BooleanField(default=False, help_text=_("Can this part be sold to customers?"))
+    salable = models.BooleanField(
+        default=False, help_text=_("Can this part be sold to customers?")
+    )
 
-    active = models.BooleanField(default=True, help_text=_('Is this part active?'))
+    active = models.BooleanField(default=True, help_text=_("Is this part active?"))
 
-    virtual = models.BooleanField(default=False, help_text=_('Is this a virtual part, such as a software product or license?'))
+    virtual = models.BooleanField(
+        default=False,
+        help_text=_("Is this a virtual part, such as a software product or license?"),
+    )
 
-    notes = MarkdownxField(help_text=_('Part notes - supports Markdown formatting'))
+    notes = MarkdownxField(help_text=_("Part notes - supports Markdown formatting"))
 
-    bom_checksum = models.CharField(max_length=128, blank=True, help_text=_('Stored BOM checksum'))
+    bom_checksum = models.CharField(
+        max_length=128, blank=True, help_text=_("Stored BOM checksum")
+    )
 
-    bom_checked_by = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True,
-                                       related_name='boms_checked')
+    bom_checked_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="boms_checked",
+    )
 
     bom_checked_date = models.DateField(blank=True, null=True)
 
@@ -453,17 +522,15 @@ class Part(models.Model):
         return helpers.MakeBarcode(
             "Part",
             self.id,
-            reverse('api-part-detail', kwargs={'pk': self.id}),
-            {
-                'name': self.name,
-            }
+            reverse("api-part-detail", kwargs={"pk": self.id}),
+            {"name": self.name,},
         )
 
     @property
     def category_path(self):
         if self.category:
             return self.category.pathstring
-        return ''
+        return ""
 
     @property
     def available_stock(self):
@@ -516,7 +583,9 @@ class Part(models.Model):
         then we need to restock.
         """
 
-        return (self.total_stock + self.on_order - self.allocation_count) < self.minimum_stock
+        return (
+            self.total_stock + self.on_order - self.allocation_count
+        ) < self.minimum_stock
 
     @property
     def can_build(self):
@@ -530,7 +599,7 @@ class Part(models.Model):
         total = None
 
         # Calculate the minimum number of parts that can be built using each sub-part
-        for item in self.bom_items.all().prefetch_related('sub_part__stock_items'):
+        for item in self.bom_items.all().prefetch_related("sub_part__stock_items"):
             stock = item.sub_part.available_stock
             n = int(stock / item.quantity)
 
@@ -568,19 +637,19 @@ class Part(models.Model):
 
         builds = []
 
-        for item in self.used_in.all().prefetch_related('part__builds'):
+        for item in self.used_in.all().prefetch_related("part__builds"):
 
             active = item.part.active_builds
-            
+
             for build in active:
                 b = {}
 
-                b['build'] = build
-                b['quantity'] = item.quantity * build.quantity
+                b["build"] = build
+                b["quantity"] = item.quantity * build.quantity
 
                 builds.append(b)
 
-        prefetch_related_objects(builds, 'build_items')
+        prefetch_related_objects(builds, "build_items")
 
         return builds
 
@@ -589,7 +658,7 @@ class Part(models.Model):
         """ Return the total number of this part that are allocated for builds
         """
 
-        return sum([a['quantity'] for a in self.build_allocation])
+        return sum([a["quantity"] for a in self.build_allocation])
 
     @property
     def allocation_count(self):
@@ -599,9 +668,7 @@ class Part(models.Model):
         - To a customer order
         """
 
-        return sum([
-            self.allocated_build_count,
-        ])
+        return sum([self.allocated_build_count,])
 
     @property
     def stock_entries(self):
@@ -622,7 +689,9 @@ class Part(models.Model):
         if self.is_template:
             total = sum([variant.total_stock for variant in self.variants.all()])
         else:
-            total = self.stock_entries.filter(status__in=StockStatus.AVAILABLE_CODES).aggregate(total=Sum('quantity'))['total']
+            total = self.stock_entries.filter(
+                status__in=StockStatus.AVAILABLE_CODES
+            ).aggregate(total=Sum("quantity"))["total"]
 
         if total:
             return total
@@ -654,7 +723,7 @@ class Part(models.Model):
 
         hash = hashlib.md5(str(self.id).encode())
 
-        for item in self.bom_items.all().prefetch_related('sub_part'):
+        for item in self.bom_items.all().prefetch_related("sub_part"):
             hash.update(str(item.get_item_hash()).encode())
 
         return str(hash.digest())
@@ -694,7 +763,7 @@ class Part(models.Model):
     def required_parts(self):
         """ Return a list of parts required to make this part (list of BOM items) """
         parts = []
-        for bom in self.bom_items.all().select_related('sub_part'):
+        for bom in self.bom_items.all().select_related("sub_part"):
             parts.append(bom.sub_part)
         return parts
 
@@ -724,7 +793,7 @@ class Part(models.Model):
     def has_complete_bom_pricing(self):
         """ Return true if there is pricing information for each item in the BOM. """
 
-        for item in self.bom_items.all().select_related('sub_part'):
+        for item in self.bom_items.all().select_related("sub_part"):
             if not item.sub_part.has_pricing_info:
                 return False
 
@@ -752,7 +821,7 @@ class Part(models.Model):
         return "{a} - {b}".format(a=min_price, b=max_price)
 
     def get_supplier_price_range(self, quantity=1):
-        
+
         min_price = None
         max_price = None
 
@@ -785,7 +854,7 @@ class Part(models.Model):
         min_price = None
         max_price = None
 
-        for item in self.bom_items.all().select_related('sub_part'):
+        for item in self.bom_items.all().select_related("sub_part"):
             prices = item.sub_part.get_price_range(quantity * item.quantity)
 
             if prices is None:
@@ -808,7 +877,7 @@ class Part(models.Model):
         return (min_price, max_price)
 
     def get_price_range(self, quantity=1, buy=True, bom=True):
-        
+
         """ Return the price range for this part. This price can be either:
 
         - Supplier price (if purchased from suppliers)
@@ -830,7 +899,7 @@ class Part(models.Model):
         else:
             return (
                 min(buy_price_range[0], bom_price_range[0]),
-                max(buy_price_range[1], bom_price_range[1])
+                max(buy_price_range[1], bom_price_range[1]),
             )
 
     def deepCopy(self, other, **kwargs):
@@ -844,13 +913,13 @@ class Part(models.Model):
         """
 
         # Copy the part image
-        if kwargs.get('image', True):
+        if kwargs.get("image", True):
             if other.image:
                 # Reference the other image from this Part
                 self.image = other.image
 
         # Copy the BOM data
-        if kwargs.get('bom', False):
+        if kwargs.get("bom", False):
             for item in other.bom_items.all():
                 # Point the item to THIS part.
                 # Set the pk to None so a new entry is created.
@@ -888,7 +957,9 @@ class Part(models.Model):
 
         orders = []
 
-        for part in self.supplier_parts.all().prefetch_related('purchase_order_line_items'):
+        for part in self.supplier_parts.all().prefetch_related(
+            "purchase_order_line_items"
+        ):
             for order in part.purchase_orders():
                 if order not in orders:
                     orders.append(order)
@@ -898,23 +969,38 @@ class Part(models.Model):
     def open_purchase_orders(self):
         """ Return a list of open purchase orders against this part """
 
-        return [order for order in self.purchase_orders() if order.status in OrderStatus.OPEN]
+        return [
+            order
+            for order in self.purchase_orders()
+            if order.status in OrderStatus.OPEN
+        ]
 
     def closed_purchase_orders(self):
         """ Return a list of closed purchase orders against this part """
 
-        return [order for order in self.purchase_orders() if order.status not in OrderStatus.OPEN]
+        return [
+            order
+            for order in self.purchase_orders()
+            if order.status not in OrderStatus.OPEN
+        ]
 
     @property
     def on_order(self):
         """ Return the total number of items on order for this part. """
 
-        return sum([part.on_order() for part in self.supplier_parts.all().prefetch_related('purchase_order_line_items')])
+        return sum(
+            [
+                part.on_order()
+                for part in self.supplier_parts.all().prefetch_related(
+                    "purchase_order_line_items"
+                )
+            ]
+        )
 
     def get_parameters(self):
         """ Return all parameters for this part, ordered by name """
 
-        return self.parameters.order_by('template__name')
+        return self.parameters.order_by("template__name")
 
 
 def attach_file(instance, filename):
@@ -928,7 +1014,7 @@ def attach_file(instance, filename):
         path to store file, format: 'part_file_<pk>_filename'
     """
     # Construct a path to store a file attachment
-    return os.path.join('part_files', str(instance.part.id), filename)
+    return os.path.join("part_files", str(instance.part.id), filename)
 
 
 class PartAttachment(models.Model):
@@ -941,13 +1027,13 @@ class PartAttachment(models.Model):
         comment: String descriptor for the attachment
     """
 
-    part = models.ForeignKey(Part, on_delete=models.CASCADE,
-                             related_name='attachments')
+    part = models.ForeignKey(Part, on_delete=models.CASCADE, related_name="attachments")
 
-    attachment = models.FileField(upload_to=attach_file,
-                                  help_text=_('Select file to attach'))
+    attachment = models.FileField(
+        upload_to=attach_file, help_text=_("Select file to attach")
+    )
 
-    comment = models.CharField(max_length=100, help_text=_('File comment'))
+    comment = models.CharField(max_length=100, help_text=_("File comment"))
 
     @property
     def basename(self):
@@ -965,12 +1051,16 @@ class PartStar(models.Model):
         user: Link to a User object
     """
 
-    part = models.ForeignKey(Part, on_delete=models.CASCADE, related_name='starred_users')
+    part = models.ForeignKey(
+        Part, on_delete=models.CASCADE, related_name="starred_users"
+    )
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='starred_parts')
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="starred_parts"
+    )
 
     class Meta:
-        unique_together = ['part', 'user']
+        unique_together = ["part", "user"]
 
 
 class PartParameterTemplate(models.Model):
@@ -999,7 +1089,9 @@ class PartParameterTemplate(models.Model):
         super().validate_unique(exclude)
 
         try:
-            others = PartParameterTemplate.objects.filter(name__iexact=self.name).exclude(pk=self.pk)
+            others = PartParameterTemplate.objects.filter(
+                name__iexact=self.name
+            ).exclude(pk=self.pk)
 
             if others.exists():
                 msg = _("Parameter template name must be unique")
@@ -1007,9 +1099,9 @@ class PartParameterTemplate(models.Model):
         except PartParameterTemplate.DoesNotExist:
             pass
 
-    name = models.CharField(max_length=100, help_text=_('Parameter Name'), unique=True)
+    name = models.CharField(max_length=100, help_text=_("Parameter Name"), unique=True)
 
-    units = models.CharField(max_length=25, help_text=_('Parameter Units'), blank=True)
+    units = models.CharField(max_length=25, help_text=_("Parameter Units"), blank=True)
 
 
 class PartParameter(models.Model):
@@ -1028,18 +1120,28 @@ class PartParameter(models.Model):
             part=str(self.part.full_name),
             param=str(self.template.name),
             data=str(self.data),
-            units=str(self.template.units)
+            units=str(self.template.units),
         )
 
     class Meta:
         # Prevent multiple instances of a parameter for a single part
-        unique_together = ('part', 'template')
+        unique_together = ("part", "template")
 
-    part = models.ForeignKey(Part, on_delete=models.CASCADE, related_name='parameters', help_text=_('Parent Part'))
+    part = models.ForeignKey(
+        Part,
+        on_delete=models.CASCADE,
+        related_name="parameters",
+        help_text=_("Parent Part"),
+    )
 
-    template = models.ForeignKey(PartParameterTemplate, on_delete=models.CASCADE, related_name='instances', help_text=_('Parameter Template'))
+    template = models.ForeignKey(
+        PartParameterTemplate,
+        on_delete=models.CASCADE,
+        related_name="instances",
+        help_text=_("Parameter Template"),
+    )
 
-    data = models.CharField(max_length=500, help_text=_('Parameter Value'))
+    data = models.CharField(max_length=500, help_text=_("Parameter Value"))
 
 
 class BomItem(models.Model):
@@ -1058,37 +1160,54 @@ class BomItem(models.Model):
     """
 
     def get_absolute_url(self):
-        return reverse('bom-item-detail', kwargs={'pk': self.id})
+        return reverse("bom-item-detail", kwargs={"pk": self.id})
 
     # A link to the parent part
     # Each part will get a reverse lookup field 'bom_items'
-    part = models.ForeignKey(Part, on_delete=models.CASCADE, related_name='bom_items',
-                             help_text=_('Select parent part'),
-                             limit_choices_to={
-                                 'assembly': True,
-                             })
+    part = models.ForeignKey(
+        Part,
+        on_delete=models.CASCADE,
+        related_name="bom_items",
+        help_text=_("Select parent part"),
+        limit_choices_to={"assembly": True,},
+    )
 
     # A link to the child item (sub-part)
     # Each part will get a reverse lookup field 'used_in'
-    sub_part = models.ForeignKey(Part, on_delete=models.CASCADE, related_name='used_in',
-                                 help_text=_('Select part to be used in BOM'),
-                                 limit_choices_to={
-                                     'component': True,
-                                 })
+    sub_part = models.ForeignKey(
+        Part,
+        on_delete=models.CASCADE,
+        related_name="used_in",
+        help_text=_("Select part to be used in BOM"),
+        limit_choices_to={"component": True,},
+    )
 
     # Quantity required
-    quantity = models.DecimalField(default=1.0, max_digits=15, decimal_places=5, validators=[MinValueValidator(0)], help_text=_('BOM quantity for this BOM item'))
+    quantity = models.DecimalField(
+        default=1.0,
+        max_digits=15,
+        decimal_places=5,
+        validators=[MinValueValidator(0)],
+        help_text=_("BOM quantity for this BOM item"),
+    )
 
-    overage = models.CharField(max_length=24, blank=True, validators=[validators.validate_overage],
-                               help_text=_('Estimated build wastage quantity (absolute or percentage)')
-                               )
+    overage = models.CharField(
+        max_length=24,
+        blank=True,
+        validators=[validators.validate_overage],
+        help_text=_("Estimated build wastage quantity (absolute or percentage)"),
+    )
 
-    reference = models.CharField(max_length=500, blank=True, help_text=_('BOM item reference'))
+    reference = models.CharField(
+        max_length=500, blank=True, help_text=_("BOM item reference")
+    )
 
     # Note attached to this BOM line item
-    note = models.CharField(max_length=500, blank=True, help_text=_('BOM item notes'))
+    note = models.CharField(max_length=500, blank=True, help_text=_("BOM item notes"))
 
-    checksum = models.CharField(max_length=128, blank=True, help_text=_('BOM line checksum'))
+    checksum = models.CharField(
+        max_length=128, blank=True, help_text=_("BOM line checksum")
+    )
 
     def get_item_hash(self):
         """ Calculate the checksum hash of this BOM line item:
@@ -1124,7 +1243,7 @@ class BomItem(models.Model):
         if valid:
             self.checksum = str(self.get_item_hash())
         else:
-            self.checksum = ''
+            self.checksum = ""
 
         self.save()
 
@@ -1151,15 +1270,29 @@ class BomItem(models.Model):
         try:
             if self.sub_part is not None and self.part is not None:
                 if self.part == self.sub_part:
-                    raise ValidationError({'sub_part': _('Part cannot be added to its own Bill of Materials')})
-        
+                    raise ValidationError(
+                        {
+                            "sub_part": _(
+                                "Part cannot be added to its own Bill of Materials"
+                            )
+                        }
+                    )
+
             # TODO - Make sure that there is no recusion
 
             # Test for simple recursion
             for item in self.sub_part.bom_items.all():
                 if self.part == item.sub_part:
-                    raise ValidationError({'sub_part': _("Part '{p1}' is  used in BOM for '{p2}' (recursive)".format(p1=str(self.part), p2=str(self.sub_part)))})
-        
+                    raise ValidationError(
+                        {
+                            "sub_part": _(
+                                "Part '{p1}' is  used in BOM for '{p2}' (recursive)".format(
+                                    p1=str(self.part), p2=str(self.sub_part)
+                                )
+                            )
+                        }
+                    )
+
         except Part.DoesNotExist:
             # A blank Part will be caught elsewhere
             pass
@@ -1168,13 +1301,14 @@ class BomItem(models.Model):
         verbose_name = "BOM Item"
 
         # Prevent duplication of parent/child rows
-        unique_together = ('part', 'sub_part')
+        unique_together = ("part", "sub_part")
 
     def __str__(self):
         return "{n} x {child} to make {parent}".format(
             parent=self.part.full_name,
             child=self.sub_part.full_name,
-            n=helpers.decimal2string(self.quantity))
+            n=helpers.decimal2string(self.quantity),
+        )
 
     def get_overage_quantity(self, quantity):
         """ Calculate overage quantity
@@ -1198,7 +1332,7 @@ class BomItem(models.Model):
             pass
 
         # Is the overage a percentage?
-        if overage.endswith('%'):
+        if overage.endswith("%"):
             overage = overage[:-1].strip()
 
             try:

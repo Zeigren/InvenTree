@@ -6,9 +6,9 @@ Serializers used in various InvenTree apps
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
-from rest_framework import serializers
-
 from django.contrib.auth.models import User
+
+from rest_framework import serializers
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -16,7 +16,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = 'all'
+        fields = "all"
 
 
 class UserSerializerBrief(serializers.ModelSerializer):
@@ -25,8 +25,8 @@ class UserSerializerBrief(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'pk',
-            'username',
+            "pk",
+            "username",
         ]
 
 
@@ -41,7 +41,7 @@ class InvenTreeModelSerializer(serializers.ModelSerializer):
         In addition to running validators on the serializer fields,
         this class ensures that the underlying model is also validated.
         """
-        
+
         # Run any native validation checks first (may throw an ValidationError)
         data = super(serializers.ModelSerializer, self).validate(data)
 

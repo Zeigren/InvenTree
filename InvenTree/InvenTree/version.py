@@ -15,12 +15,16 @@ def inventreeVersion():
 def inventreeCommitHash():
     """ Returns the git commit hash for the running codebase """
 
-    return str(subprocess.check_output('git rev-parse --short HEAD'.split()), 'utf-8').strip()
+    return str(
+        subprocess.check_output("git rev-parse --short HEAD".split()), "utf-8"
+    ).strip()
 
 
 def inventreeCommitDate():
     """ Returns the git commit date for the running codebase """
 
-    d = str(subprocess.check_output('git show -s --format=%ci'.split()), 'utf-8').strip()
+    d = str(
+        subprocess.check_output("git show -s --format=%ci".split()), "utf-8"
+    ).strip()
 
-    return d.split(' ')[0]
+    return d.split(" ")[0]

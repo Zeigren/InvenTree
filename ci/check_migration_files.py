@@ -3,12 +3,12 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
-import sys
 import subprocess
+import sys
 
 print("Checking for unstaged migration files...")
 
-cmd = ['git', 'ls-files', '--exclude-standard', '--others']
+cmd = ["git", "ls-files", "--exclude-standard", "--others"]
 
 proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
@@ -16,8 +16,8 @@ out, err = proc.communicate()
 
 migrations = []
 
-for line in str(out.decode()).split('\n'):
-    if '/migrations/' in line:
+for line in str(out.decode()).split("\n"):
+    if "/migrations/" in line:
         migrations.append(line)
 
 if len(migrations) == 0:

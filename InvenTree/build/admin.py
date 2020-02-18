@@ -10,24 +10,20 @@ from .models import Build, BuildItem
 class BuildAdmin(ImportExportModelAdmin):
 
     list_display = (
-        'part',
-        'status',
-        'batch',
-        'quantity',
-        'creation_date',
-        'completion_date',
-        'title',
-        'notes',
+        "part",
+        "status",
+        "batch",
+        "quantity",
+        "creation_date",
+        "completion_date",
+        "title",
+        "notes",
     )
 
 
 class BuildItemAdmin(admin.ModelAdmin):
 
-    list_display = (
-        'build',
-        'stock_item',
-        'quantity'
-    )
+    list_display = ("build", "stock_item", "quantity")
 
 
 admin.site.register(Build, BuildAdmin)

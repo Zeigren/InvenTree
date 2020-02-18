@@ -3,28 +3,28 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+import json
+
+from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
-from django.contrib.auth import get_user_model
 
 from InvenTree.status_codes import OrderStatus
 
 from .models import PurchaseOrder, PurchaseOrderLineItem
 
-import json
-
 
 class OrderViewTestCase(TestCase):
-    
+
     fixtures = [
-        'category',
-        'part',
-        'bom',
-        'location',
-        'company',
-        'supplier_part',
-        'stock',
-        'order',
+        "category",
+        "part",
+        "bom",
+        "location",
+        "company",
+        "supplier_part",
+        "stock",
+        "order",
     ]
 
     def setUp(self):
@@ -32,15 +32,14 @@ class OrderViewTestCase(TestCase):
 
         # Create a user
         User = get_user_model()
-        User.objects.create_user('username', 'user@email.com', 'password')
+        User.objects.create_user("username", "user@email.com", "password")
 
-        self.client.login(username='username', password='password')
+        self.client.login(username="username", password="password")
 
 
 class OrderListTest(OrderViewTestCase):
-
     def test_order_list(self):
-        response = self.client.get(reverse('purchase-order-index'))
+        response = self.client.get(reverse("purchase-order-index"))
 
         self.assertEqual(response.status_code, 200)
 
@@ -50,62 +49,76 @@ class POTests(OrderViewTestCase):
 
     def test_detail_view(self):
         """ Retrieve PO detail view """
-        response = self.client.get(reverse('purchase-order-detail', args=(1,)))
+        response = self.client.get(reverse("purchase-order-detail", args=(1,)))
         self.assertEqual(response.status_code, 200)
         keys = response.context.keys()
-        self.assertIn('OrderStatus', keys)
+        self.assertIn("OrderStatus", keys)
 
     def test_po_create(self):
         """ Launch forms to create new PurchaseOrder"""
-        url = reverse('purchase-order-create')
+        url = reverse("purchase-order-create")
 
         # Without a supplier ID
-        response = self.client.get(url, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        response = self.client.get(url, HTTP_X_REQUESTED_WITH="XMLHttpRequest")
         self.assertEqual(response.status_code, 200)
 
         # With a valid supplier ID
-        response = self.client.get(url, {'supplier': 1}, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        response = self.client.get(
+            url, {"supplier": 1}, HTTP_X_REQUESTED_WITH="XMLHttpRequest"
+        )
         self.assertEqual(response.status_code, 200)
 
         # With an invalid supplier ID
-        response = self.client.get(url, {'supplier': 'goat'}, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        response = self.client.get(
+            url, {"supplier": "goat"}, HTTP_X_REQUESTED_WITH="XMLHttpRequest"
+        )
         self.assertEqual(response.status_code, 200)
 
     def test_po_edit(self):
         """ Launch form to edit a PurchaseOrder """
 
-        response = self.client.get(reverse('purchase-order-edit', args=(1,)), HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        response = self.client.get(
+            reverse("purchase-order-edit", args=(1,)),
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
         self.assertEqual(response.status_code, 200)
 
     def test_po_export(self):
         """ Export PurchaseOrder """
 
-        response = self.client.get(reverse('purchase-order-export', args=(1,)), HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        response = self.client.get(
+            reverse("purchase-order-export", args=(1,)),
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
 
         # Response should be streaming-content (file download)
-        self.assertIn('streaming_content', dir(response))
+        self.assertIn("streaming_content", dir(response))
 
     def test_po_issue(self):
         """ Test PurchaseOrderIssue view """
 
-        url = reverse('purchase-order-issue', args=(1,))
+        url = reverse("purchase-order-issue", args=(1,))
 
         order = PurchaseOrder.objects.get(pk=1)
         self.assertEqual(order.status, OrderStatus.PENDING)
 
         # Test without confirmation
-        response = self.client.post(url, {'confirm': 0}, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        response = self.client.post(
+            url, {"confirm": 0}, HTTP_X_REQUESTED_WITH="XMLHttpRequest"
+        )
         self.assertEqual(response.status_code, 200)
-        
+
         data = json.loads(response.content)
-        self.assertFalse(data['form_valid'])
+        self.assertFalse(data["form_valid"])
 
         # Test WITH confirmation
-        response = self.client.post(url, {'confirm': 1}, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        response = self.client.post(
+            url, {"confirm": 1}, HTTP_X_REQUESTED_WITH="XMLHttpRequest"
+        )
         self.assertEqual(response.status_code, 200)
 
         data = json.loads(response.content)
-        self.assertTrue(data['form_valid'])
+        self.assertTrue(data["form_valid"])
 
         # Test that the order was actually placed
         order = PurchaseOrder.objects.get(pk=1)
@@ -119,46 +132,56 @@ class POTests(OrderViewTestCase):
         n = po.lines.count()
         self.assertEqual(po.status, OrderStatus.PENDING)
 
-        url = reverse('po-line-item-create')
+        url = reverse("po-line-item-create")
 
         # GET the form (pass the correct info)
-        response = self.client.get(url, {'order': 1}, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
-        
+        response = self.client.get(
+            url, {"order": 1}, HTTP_X_REQUESTED_WITH="XMLHttpRequest"
+        )
+
         post_data = {
-            'part': 100,
-            'quantity': 45,
-            'reference': 'Test reference field',
-            'notes': 'Test notes field'
+            "part": 100,
+            "quantity": 45,
+            "reference": "Test reference field",
+            "notes": "Test notes field",
         }
 
         # POST with an invalid purchase order
-        post_data['order'] = 99
-        response = self.client.post(url, post_data, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        post_data["order"] = 99
+        response = self.client.post(
+            url, post_data, HTTP_X_REQUESTED_WITH="XMLHttpRequest"
+        )
         data = json.loads(response.content)
-        self.assertFalse(data['form_valid'])
-        self.assertIn('Invalid Purchase Order', str(data['html_form']))
+        self.assertFalse(data["form_valid"])
+        self.assertIn("Invalid Purchase Order", str(data["html_form"]))
 
         # POST with a part that does not match the purchase order
-        post_data['order'] = 1
-        post_data['part'] = 7
-        response = self.client.post(url, post_data, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        post_data["order"] = 1
+        post_data["part"] = 7
+        response = self.client.post(
+            url, post_data, HTTP_X_REQUESTED_WITH="XMLHttpRequest"
+        )
         data = json.loads(response.content)
-        self.assertFalse(data['form_valid'])
-        self.assertIn('must match for Part and Order', str(data['html_form']))
+        self.assertFalse(data["form_valid"])
+        self.assertIn("must match for Part and Order", str(data["html_form"]))
 
         # POST with an invalid part
-        post_data['part'] = 12345
-        response = self.client.post(url, post_data, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        post_data["part"] = 12345
+        response = self.client.post(
+            url, post_data, HTTP_X_REQUESTED_WITH="XMLHttpRequest"
+        )
         data = json.loads(response.content)
-        self.assertFalse(data['form_valid'])
-        self.assertIn('Invalid SupplierPart selection', str(data['html_form']))
+        self.assertFalse(data["form_valid"])
+        self.assertIn("Invalid SupplierPart selection", str(data["html_form"]))
 
         # POST the form with valid data
-        post_data['part'] = 100
-        response = self.client.post(url, post_data, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        post_data["part"] = 100
+        response = self.client.post(
+            url, post_data, HTTP_X_REQUESTED_WITH="XMLHttpRequest"
+        )
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
-        self.assertTrue(data['form_valid'])
+        self.assertTrue(data["form_valid"])
 
         self.assertEqual(n + 1, PurchaseOrder.objects.get(pk=1).lines.count())
 
@@ -168,9 +191,9 @@ class POTests(OrderViewTestCase):
     def test_line_item_edit(self):
         """ Test editing form for PO line item """
 
-        url = reverse('po-line-item-edit', args=(22,))
+        url = reverse("po-line-item-edit", args=(22,))
 
-        response = self.client.get(url, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        response = self.client.get(url, HTTP_X_REQUESTED_WITH="XMLHttpRequest")
         self.assertEqual(response.status_code, 200)
 
 
@@ -183,63 +206,63 @@ class TestPOReceive(OrderViewTestCase):
         self.po = PurchaseOrder.objects.get(pk=1)
         self.po.status = OrderStatus.PLACED
         self.po.save()
-        self.url = reverse('purchase-order-receive', args=(1,))
+        self.url = reverse("purchase-order-receive", args=(1,))
 
     def post(self, data, validate=None):
 
-        response = self.client.post(self.url, data, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        response = self.client.post(
+            self.url, data, HTTP_X_REQUESTED_WITH="XMLHttpRequest"
+        )
 
         if validate is not None:
 
             data = json.loads(response.content)
 
             if validate:
-                self.assertTrue(data['form_valid'])
+                self.assertTrue(data["form_valid"])
             else:
-                self.assertFalse(data['form_valid'])
+                self.assertFalse(data["form_valid"])
 
         return response
 
     def test_get_dialog(self):
 
-        data = {
-        }
+        data = {}
 
-        self.client.get(self.url, data, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.client.get(self.url, data, HTTP_X_REQUESTED_WITH="XMLHttpRequest")
 
     def test_receive_lines(self):
-        
-        post_data = {
-        }
+
+        post_data = {}
 
         self.post(post_data, validate=False)
 
         # Try with an invalid location
-        post_data['location'] = 12345
+        post_data["location"] = 12345
 
         self.post(post_data, validate=False)
 
         # Try with a valid location
-        post_data['location'] = 1
+        post_data["location"] = 1
 
         # Should fail due to invalid quantity
         self.post(post_data, validate=False)
 
         # Try to receive against an invalid line
-        post_data['line-800'] = 100
+        post_data["line-800"] = 100
 
         # Remove an invalid quantity of items
-        post_data['line-1'] = '7x5q'
+        post_data["line-1"] = "7x5q"
 
         self.post(post_data, validate=False)
 
         # Receive negative number
-        post_data['line-1'] = -100
-        
+        post_data["line-1"] = -100
+
         self.post(post_data, validate=False)
 
         # Receive 75 items
-        post_data['line-1'] = 75
+        post_data["line-1"] = 75
 
         self.post(post_data, validate=True)
 
@@ -248,7 +271,7 @@ class TestPOReceive(OrderViewTestCase):
         self.assertEqual(line.received, 75)
 
         # Receive 30 more items
-        post_data['line-1'] = 30
+        post_data["line-1"] = 30
 
         self.post(post_data, validate=True)
 

@@ -2,7 +2,6 @@ from django.utils.translation import ugettext as _
 
 
 class StatusCode:
-
     @classmethod
     def items(cls):
         return cls.options.items()
@@ -48,11 +47,7 @@ class OrderStatus(StatusCode):
     ]
 
     # Failed orders
-    FAILED = [
-        CANCELLED,
-        LOST,
-        RETURNED
-    ]
+    FAILED = [CANCELLED, LOST, RETURNED]
 
 
 class StockStatus(StatusCode):
@@ -72,11 +67,7 @@ class StockStatus(StatusCode):
     }
 
     # The following codes correspond to parts that are 'available'
-    AVAILABLE_CODES = [
-        OK,
-        ATTENTION,
-        DAMAGED
-    ]
+    AVAILABLE_CODES = [OK, ATTENTION, DAMAGED]
 
 
 class BuildStatus(StatusCode):
@@ -94,7 +85,4 @@ class BuildStatus(StatusCode):
         COMPLETE: _("Complete"),
     }
 
-    ACTIVE_CODES = [
-        PENDING,
-        ALLOCATED
-    ]
+    ACTIVE_CODES = [PENDING, ALLOCATED]

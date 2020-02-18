@@ -1,10 +1,11 @@
-from django.test import TestCase
-from django.db.models import Sum
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.db.models import Sum
+from django.test import TestCase
 
-from .models import StockLocation, StockItem, StockItemTracking
 from part.models import Part
+
+from .models import StockItem, StockItemTracking, StockLocation
 
 
 class StockTest(TestCase):
@@ -13,39 +14,39 @@ class StockTest(TestCase):
     """
 
     fixtures = [
-        'category',
-        'part',
-        'location',
-        'stock',
+        "category",
+        "part",
+        "location",
+        "stock",
     ]
 
     def setUp(self):
         # Extract some shortcuts from the fixtures
-        self.home = StockLocation.objects.get(name='Home')
-        self.bathroom = StockLocation.objects.get(name='Bathroom')
-        self.diningroom = StockLocation.objects.get(name='Dining Room')
+        self.home = StockLocation.objects.get(name="Home")
+        self.bathroom = StockLocation.objects.get(name="Bathroom")
+        self.diningroom = StockLocation.objects.get(name="Dining Room")
 
-        self.office = StockLocation.objects.get(name='Office')
-        self.drawer1 = StockLocation.objects.get(name='Drawer_1')
-        self.drawer2 = StockLocation.objects.get(name='Drawer_2')
-        self.drawer3 = StockLocation.objects.get(name='Drawer_3')
+        self.office = StockLocation.objects.get(name="Office")
+        self.drawer1 = StockLocation.objects.get(name="Drawer_1")
+        self.drawer2 = StockLocation.objects.get(name="Drawer_2")
+        self.drawer3 = StockLocation.objects.get(name="Drawer_3")
 
         # Create a user
         User = get_user_model()
-        User.objects.create_user('username', 'user@email.com', 'password')
+        User.objects.create_user("username", "user@email.com", "password")
 
-        self.client.login(username='username', password='password')
+        self.client.login(username="username", password="password")
 
-        self.user = User.objects.get(username='username')
+        self.user = User.objects.get(username="username")
 
     def test_loc_count(self):
         self.assertEqual(StockLocation.objects.count(), 7)
 
     def test_url(self):
         it = StockItem.objects.get(pk=2)
-        self.assertEqual(it.get_absolute_url(), '/stock/item/2/')
+        self.assertEqual(it.get_absolute_url(), "/stock/item/2/")
 
-        self.assertEqual(self.home.get_absolute_url(), '/stock/location/1/')
+        self.assertEqual(self.home.get_absolute_url(), "/stock/location/1/")
 
     def test_barcode(self):
         barcode = self.office.format_barcode()
@@ -54,7 +55,7 @@ class StockTest(TestCase):
 
     def test_strings(self):
         it = StockItem.objects.get(pk=1)
-        self.assertEqual(str(it), '4000 x M2x4 LPHS @ Dining Room')
+        self.assertEqual(str(it), "4000 x M2x4 LPHS @ Dining Room")
 
     def test_parent_locations(self):
 
@@ -63,15 +64,15 @@ class StockTest(TestCase):
         self.assertEqual(self.drawer2.parent, self.office)
         self.assertEqual(self.drawer3.parent, self.office)
 
-        self.assertEqual(self.drawer3.pathstring, 'Office/Drawer_3')
+        self.assertEqual(self.drawer3.pathstring, "Office/Drawer_3")
 
         # Move one of the drawers
         self.drawer3.parent = self.home
         self.drawer3.save()
 
         self.assertNotEqual(self.drawer3.parent, self.office)
-        
-        self.assertEqual(self.drawer3.pathstring, 'Home/Drawer_3')
+
+        self.assertEqual(self.drawer3.pathstring, "Home/Drawer_3")
 
     def test_children(self):
         self.assertTrue(self.office.has_children)
@@ -101,7 +102,12 @@ class StockTest(TestCase):
         self.assertEqual(part.total_stock, 9000)
 
         # There should be 18 widgets in stock
-        self.assertEqual(StockItem.objects.filter(part=25).aggregate(Sum('quantity'))['quantity__sum'], 18)
+        self.assertEqual(
+            StockItem.objects.filter(part=25).aggregate(Sum("quantity"))[
+                "quantity__sum"
+            ],
+            18,
+        )
 
     def test_delete_location(self):
 
@@ -109,7 +115,9 @@ class StockTest(TestCase):
         n_stock = StockItem.objects.count()
 
         # What parts are in drawer 3?
-        stock_ids = [part.id for part in StockItem.objects.filter(location=self.drawer3.id)]
+        stock_ids = [
+            part.id for part in StockItem.objects.filter(location=self.drawer3.id)
+        ]
 
         # Delete location - parts should move to parent location
         self.drawer3.delete()
@@ -128,25 +136,27 @@ class StockTest(TestCase):
         # Move 4,000 screws to the bathroom
         it = StockItem.objects.get(pk=1)
         self.assertNotEqual(it.location, self.bathroom)
-        self.assertTrue(it.move(self.bathroom, 'Moved to the bathroom', None))
+        self.assertTrue(it.move(self.bathroom, "Moved to the bathroom", None))
         self.assertEqual(it.location, self.bathroom)
 
         # There now should be 2 lots of screws in the bathroom
-        self.assertEqual(StockItem.objects.filter(part=1, location=self.bathroom).count(), 2)
+        self.assertEqual(
+            StockItem.objects.filter(part=1, location=self.bathroom).count(), 2
+        )
 
         # Check that a tracking item was added
-        track = StockItemTracking.objects.filter(item=it).latest('id')
+        track = StockItemTracking.objects.filter(item=it).latest("id")
 
         self.assertEqual(track.item, it)
-        self.assertIn('Moved to', track.title)
-        self.assertEqual(track.notes, 'Moved to the bathroom')
+        self.assertIn("Moved to", track.title)
+        self.assertEqual(track.notes, "Moved to the bathroom")
 
     def test_self_move(self):
         # Try to move an item to its current location (should fail)
         it = StockItem.objects.get(pk=1)
 
         n = it.tracking_info.count()
-        self.assertFalse(it.move(it.location, 'Moved to same place', None))
+        self.assertFalse(it.move(it.location, "Moved to same place", None))
 
         # Ensure tracking info was not added
         self.assertEqual(it.tracking_info.count(), n)
@@ -155,7 +165,7 @@ class StockTest(TestCase):
         w1 = StockItem.objects.get(pk=100)
 
         # Move 6 of the units
-        self.assertTrue(w1.move(self.diningroom, 'Moved', None, quantity=6))
+        self.assertTrue(w1.move(self.diningroom, "Moved", None, quantity=6))
 
         # There should be 4 remaining
         self.assertEqual(w1.quantity, 4)
@@ -165,11 +175,11 @@ class StockTest(TestCase):
         widget = StockItem.objects.get(location=self.drawer3.id, part=25, quantity=4)
 
         # Try to move negative units
-        self.assertFalse(widget.move(self.bathroom, 'Test', None, quantity=-100))
+        self.assertFalse(widget.move(self.bathroom, "Test", None, quantity=-100))
         self.assertEqual(StockItem.objects.filter(part=25).count(), 4)
 
         # Try to move to a blank location
-        self.assertFalse(widget.move(None, 'null', None))
+        self.assertFalse(widget.move(None, "null", None))
 
     def test_split_stock(self):
         # Split the 1234 x 2K2 resistors in Drawer_1
@@ -194,18 +204,18 @@ class StockTest(TestCase):
         # Perform stocktake
         it = StockItem.objects.get(pk=2)
         self.assertEqual(it.quantity, 5000)
-        it.stocktake(255, None, notes='Counted items!')
+        it.stocktake(255, None, notes="Counted items!")
 
         self.assertEqual(it.quantity, 255)
 
         # Check that a tracking item was added
-        track = StockItemTracking.objects.filter(item=it).latest('id')
+        track = StockItemTracking.objects.filter(item=it).latest("id")
 
-        self.assertIn('Stocktake', track.title)
-        self.assertIn('Counted items', track.notes)
+        self.assertIn("Stocktake", track.title)
+        self.assertIn("Counted items", track.notes)
 
         n = it.tracking_info.count()
-        self.assertFalse(it.stocktake(-1, None, 'test negative stocktake'))
+        self.assertFalse(it.stocktake(-1, None, "test negative stocktake"))
 
         # Ensure tracking info was not added
         self.assertEqual(it.tracking_info.count(), n)
@@ -213,30 +223,30 @@ class StockTest(TestCase):
     def test_add_stock(self):
         it = StockItem.objects.get(pk=2)
         n = it.quantity
-        it.add_stock(45, None, notes='Added some items')
+        it.add_stock(45, None, notes="Added some items")
 
         self.assertEqual(it.quantity, n + 45)
 
         # Check that a tracking item was added
-        track = StockItemTracking.objects.filter(item=it).latest('id')
+        track = StockItemTracking.objects.filter(item=it).latest("id")
 
-        self.assertIn('Added', track.title)
-        self.assertIn('Added some items', track.notes)
+        self.assertIn("Added", track.title)
+        self.assertIn("Added some items", track.notes)
 
         self.assertFalse(it.add_stock(-10, None))
 
     def test_take_stock(self):
         it = StockItem.objects.get(pk=2)
         n = it.quantity
-        it.take_stock(15, None, notes='Removed some items')
+        it.take_stock(15, None, notes="Removed some items")
 
         self.assertEqual(it.quantity, n - 15)
 
         # Check that a tracking item was added
-        track = StockItemTracking.objects.filter(item=it).latest('id')
+        track = StockItemTracking.objects.filter(item=it).latest("id")
 
-        self.assertIn('Removed', track.title)
-        self.assertIn('Removed some items', track.notes)
+        self.assertIn("Removed", track.title)
+        self.assertIn("Removed some items", track.notes)
         self.assertTrue(it.has_tracking_info)
 
         # Test that negative quantity does nothing
@@ -248,14 +258,14 @@ class StockTest(TestCase):
         w2 = StockItem.objects.get(pk=101)
 
         # Take 25 units from w1 (there are only 10 in stock)
-        w1.take_stock(30, None, notes='Took 30')
+        w1.take_stock(30, None, notes="Took 30")
 
         # Get from database again
         w1 = StockItem.objects.get(pk=100)
         self.assertEqual(w1.quantity, 0)
 
         # Take 25 units from w2 (will be deleted)
-        w2.take_stock(30, None, notes='Took 30')
+        w2.take_stock(30, None, notes="Took 30")
 
         with self.assertRaises(StockItem.DoesNotExist):
             w2 = StockItem.objects.get(pk=101)
@@ -287,7 +297,7 @@ class StockTest(TestCase):
 
         # Try invalid serial numbers
         with self.assertRaises(ValidationError):
-            item.serializeStock(3, [1, 2, 'k'], self.user)
+            item.serializeStock(3, [1, 2, "k"], self.user)
 
         with self.assertRaises(ValidationError):
             item.serializeStock(3, "hello", self.user)

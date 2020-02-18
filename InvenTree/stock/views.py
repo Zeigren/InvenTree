@@ -5,46 +5,54 @@ Django views for interacting with Stock app
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
-from django.core.exceptions import ValidationError
-from django.views.generic.edit import FormMixin
-from django.views.generic import DetailView, ListView, UpdateView
-from django.forms.models import model_to_dict
-from django.forms import HiddenInput
-from django.urls import reverse
-
-from django.utils.translation import ugettext as _
-
-from InvenTree.views import AjaxView
-from InvenTree.views import AjaxUpdateView, AjaxDeleteView, AjaxCreateView
-from InvenTree.views import QRCodeView
-
-from InvenTree.helpers import str2bool, DownloadFile, GetExportFormats
-from InvenTree.helpers import ExtractSerialNumbers
-
-from decimal import Decimal, InvalidOperation
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
+
+from django.core.exceptions import ValidationError
+from django.forms import HiddenInput
+from django.forms.models import model_to_dict
+from django.urls import reverse
+from django.utils.translation import ugettext as _
+from django.views.generic import DetailView, ListView, UpdateView
+from django.views.generic.edit import FormMixin
 
 from company.models import Company, SupplierPart
 from part.models import Part
-from .models import StockItem, StockLocation, StockItemTracking
+
+from InvenTree.helpers import (
+    DownloadFile,
+    ExtractSerialNumbers,
+    GetExportFormats,
+    str2bool,
+)
+from InvenTree.views import (
+    AjaxCreateView,
+    AjaxDeleteView,
+    AjaxUpdateView,
+    AjaxView,
+    QRCodeView,
+)
 
 from .admin import StockItemResource
-
-from .forms import EditStockLocationForm
-from .forms import CreateStockItemForm
-from .forms import EditStockItemForm
-from .forms import AdjustStockForm
-from .forms import TrackingEntryForm
-from .forms import SerializeStockForm
-from .forms import ExportOptionsForm
+from .forms import (
+    AdjustStockForm,
+    CreateStockItemForm,
+    EditStockItemForm,
+    EditStockLocationForm,
+    ExportOptionsForm,
+    SerializeStockForm,
+    TrackingEntryForm,
+)
+from .models import StockItem, StockItemTracking, StockLocation
 
 
 class StockIndex(ListView):
     """ StockIndex view loads all StockLocation and StockItem object
     """
+
     model = StockItem
-    template_name = 'stock/location.html'
-    context_obect_name = 'locations'
+    template_name = "stock/location.html"
+    context_obect_name = "locations"
 
     def get_context_data(self, **kwargs):
         context = super(StockIndex, self).get_context_data(**kwargs).copy()
@@ -52,11 +60,11 @@ class StockIndex(ListView):
         # Return all top-level locations
         locations = StockLocation.objects.filter(parent=None)
 
-        context['locations'] = locations
-        context['items'] = StockItem.objects.all()
+        context["locations"] = locations
+        context["items"] = StockItem.objects.all()
 
-        context['loc_count'] = StockLocation.objects.count()
-        context['stock_count'] = StockItem.objects.count()
+        context["loc_count"] = StockLocation.objects.count()
+        context["stock_count"] = StockItem.objects.count()
 
         return context
 
@@ -66,8 +74,8 @@ class StockLocationDetail(DetailView):
     Detailed view of a single StockLocation object
     """
 
-    context_object_name = 'location'
-    template_name = 'stock/location.html'
+    context_object_name = "location"
+    template_name = "stock/location.html"
     queryset = StockLocation.objects.all()
     model = StockLocation
 
@@ -77,8 +85,8 @@ class StockItemDetail(DetailView):
     Detailed view of a single StockItem object
     """
 
-    context_object_name = 'item'
-    template_name = 'stock/item.html'
+    context_object_name = "item"
+    template_name = "stock/item.html"
     queryset = StockItem.objects.all()
     model = StockItem
 
@@ -86,20 +94,20 @@ class StockItemDetail(DetailView):
 class StockItemNotes(UpdateView):
     """ View for editing the 'notes' field of a StockItem object """
 
-    context_object_name = 'item'
-    template_name = 'stock/item_notes.html'
+    context_object_name = "item"
+    template_name = "stock/item_notes.html"
     model = StockItem
 
-    fields = ['notes']
+    fields = ["notes"]
 
     def get_success_url(self):
-        return reverse('stock-item-notes', kwargs={'pk': self.get_object().id})
+        return reverse("stock-item-notes", kwargs={"pk": self.get_object().id})
 
     def get_context_data(self, **kwargs):
 
         ctx = super().get_context_data(**kwargs)
 
-        ctx['editing'] = str2bool(self.request.GET.get('edit', ''))
+        ctx["editing"] = str2bool(self.request.GET.get("edit", ""))
 
         return ctx
 
@@ -112,9 +120,9 @@ class StockLocationEdit(AjaxUpdateView):
 
     model = StockLocation
     form_class = EditStockLocationForm
-    context_object_name = 'location'
-    ajax_template_name = 'modal_form.html'
-    ajax_form_title = _('Edit Stock Location')
+    context_object_name = "location"
+    ajax_template_name = "modal_form.html"
+    ajax_form_title = _("Edit Stock Location")
 
     def get_form(self):
         """ Customize form data for StockLocation editing.
@@ -130,7 +138,7 @@ class StockLocationEdit(AjaxUpdateView):
         parent_choices = StockLocation.objects.all()
         parent_choices = parent_choices.exclude(id__in=location.getUniqueChildren())
 
-        form.fields['parent'].queryset = parent_choices
+        form.fields["parent"].queryset = parent_choices
 
         return form
 
@@ -153,27 +161,23 @@ class StockExportOptions(AjaxView):
     """ Form for selecting StockExport options """
 
     model = StockLocation
-    ajax_form_title = _('Stock Export Options')
+    ajax_form_title = _("Stock Export Options")
     form_class = ExportOptionsForm
 
     def post(self, request, *args, **kwargs):
 
         self.request = request
 
-        fmt = request.POST.get('file_format', 'csv').lower()
-        cascade = str2bool(request.POST.get('include_sublocations', False))
+        fmt = request.POST.get("file_format", "csv").lower()
+        cascade = str2bool(request.POST.get("include_sublocations", False))
 
         # Format a URL to redirect to
-        url = reverse('stock-export')
+        url = reverse("stock-export")
 
-        url += '?format=' + fmt
-        url += '&cascade=' + str(cascade)
+        url += "?format=" + fmt
+        url += "&cascade=" + str(cascade)
 
-        data = {
-            'form_valid': True,
-            'format': fmt,
-            'cascade': cascade
-        }
+        data = {"form_valid": True, "format": fmt, "cascade": cascade}
 
         return self.renderJsonResponse(self.request, self.form_class(), data=data)
 
@@ -190,12 +194,12 @@ class StockExport(AjaxView):
 
     def get(self, request, *args, **kwargs):
 
-        export_format = request.GET.get('format', 'csv').lower()
-        
+        export_format = request.GET.get("format", "csv").lower()
+
         # Check if a particular location was specified
-        loc_id = request.GET.get('location', None)
+        loc_id = request.GET.get("location", None)
         location = None
-        
+
         if loc_id:
             try:
                 location = StockLocation.objects.get(pk=loc_id)
@@ -203,7 +207,7 @@ class StockExport(AjaxView):
                 pass
 
         # Check if a particular supplier was specified
-        sup_id = request.GET.get('supplier', None)
+        sup_id = request.GET.get("supplier", None)
         supplier = None
 
         if sup_id:
@@ -213,7 +217,7 @@ class StockExport(AjaxView):
                 pass
 
         # Check if a particular supplier_part was specified
-        sup_part_id = request.GET.get('supplier_part', None)
+        sup_part_id = request.GET.get("supplier_part", None)
         supplier_part = None
 
         if sup_part_id:
@@ -223,7 +227,7 @@ class StockExport(AjaxView):
                 pass
 
         # Check if a particular part was specified
-        part_id = request.GET.get('part', None)
+        part_id = request.GET.get("part", None)
         part = None
 
         if part_id:
@@ -233,16 +237,15 @@ class StockExport(AjaxView):
                 pass
 
         if export_format not in GetExportFormats():
-            export_format = 'csv'
+            export_format = "csv"
 
-        filename = 'InvenTree_Stocktake_{date}.{fmt}'.format(
-            date=datetime.now().strftime("%d-%b-%Y"),
-            fmt=export_format
+        filename = "InvenTree_Stocktake_{date}.{fmt}".format(
+            date=datetime.now().strftime("%d-%b-%Y"), fmt=export_format
         )
 
         if location:
             # CHeck if locations should be cascading
-            cascade = str2bool(request.GET.get('cascade', True))
+            cascade = str2bool(request.GET.get("cascade", True))
             stock_items = location.get_stock_items(cascade)
         else:
             cascade = True
@@ -263,7 +266,9 @@ class StockExport(AjaxView):
         stock_items = stock_items.filter(belongs_to=None)
 
         # Pre-fetch related fields to reduce DB queries
-        stock_items = stock_items.prefetch_related('part', 'supplier_part__supplier', 'location', 'purchase_order', 'build')
+        stock_items = stock_items.prefetch_related(
+            "part", "supplier_part__supplier", "location", "purchase_order", "build"
+        )
 
         dataset = StockItemResource().export(queryset=stock_items)
 
@@ -297,8 +302,8 @@ class StockAdjust(AjaxView, FormMixin):
     
     """
 
-    ajax_template_name = 'stock/stock_adjust.html'
-    ajax_form_title = _('Adjust Stock')
+    ajax_template_name = "stock/stock_adjust.html"
+    ajax_form_title = _("Adjust Stock")
     form_class = AdjustStockForm
     stock_items = []
 
@@ -317,20 +322,20 @@ class StockAdjust(AjaxView, FormMixin):
         items = StockItem.objects.filter(customer=None, belongs_to=None)
 
         # Client provides a list of individual stock items
-        if 'stock[]' in self.request.GET:
-            items = items.filter(id__in=self.request.GET.getlist('stock[]'))
+        if "stock[]" in self.request.GET:
+            items = items.filter(id__in=self.request.GET.getlist("stock[]"))
 
         # Client provides a PART reference
-        elif 'part' in self.request.GET:
-            items = items.filter(part=self.request.GET.get('part'))
+        elif "part" in self.request.GET:
+            items = items.filter(part=self.request.GET.get("part"))
 
         # Client provides a LOCATION reference
-        elif 'location' in self.request.GET:
-            items = items.filter(location=self.request.GET.get('location'))
+        elif "location" in self.request.GET:
+            items = items.filter(location=self.request.GET.get("location"))
 
         # Client provides a single StockItem lookup
-        elif 'item' in self.request.GET:
-            items = [StockItem.objects.get(id=self.request.GET.get('item'))]
+        elif "item" in self.request.GET:
+            items = [StockItem.objects.get(id=self.request.GET.get("item"))]
 
         # Unsupported query (no items)
         else:
@@ -339,7 +344,7 @@ class StockAdjust(AjaxView, FormMixin):
         for item in items:
 
             # Initialize quantity to zero for addition/removal
-            if self.stock_action in ['take', 'add']:
+            if self.stock_action in ["take", "add"]:
                 item.new_quantity = 0
             # Initialize quantity at full amount for counting or moving
             else:
@@ -353,9 +358,9 @@ class StockAdjust(AjaxView, FormMixin):
         items = []
 
         for item in self.request.POST:
-            if item.startswith('stock-id-'):
-                
-                pk = item.replace('stock-id-', '')
+            if item.startswith("stock-id-"):
+
+                pk = item.replace("stock-id-", "")
                 q = self.request.POST[item]
 
                 try:
@@ -373,14 +378,14 @@ class StockAdjust(AjaxView, FormMixin):
 
         context = super().get_context_data()
 
-        context['stock_items'] = self.stock_items
+        context["stock_items"] = self.stock_items
 
-        context['stock_action'] = self.stock_action.strip().lower()
+        context["stock_action"] = self.stock_action.strip().lower()
 
-        context['stock_action_title'] = self.stock_action.capitalize()
+        context["stock_action_title"] = self.stock_action.capitalize()
 
         # Quantity column will be read-only in some circumstances
-        context['edit_quantity'] = not self.stock_action == 'delete'
+        context["edit_quantity"] = not self.stock_action == "delete"
 
         return context
 
@@ -388,9 +393,9 @@ class StockAdjust(AjaxView, FormMixin):
 
         form = super().get_form()
 
-        if not self.stock_action == 'move':
-            form.fields.pop('destination')
-            form.fields.pop('set_loc')
+        if not self.stock_action == "move":
+            form.fields.pop("destination")
+            form.fields.pop("set_loc")
 
         return form
 
@@ -399,23 +404,23 @@ class StockAdjust(AjaxView, FormMixin):
         self.request = request
 
         # Action
-        self.stock_action = request.GET.get('action', '').lower()
+        self.stock_action = request.GET.get("action", "").lower()
 
         # Pick a default action...
-        if self.stock_action not in ['move', 'count', 'take', 'add', 'delete']:
-            self.stock_action = 'count'
+        if self.stock_action not in ["move", "count", "take", "add", "delete"]:
+            self.stock_action = "count"
 
         # Choose the form title based on the action
         titles = {
-            'move': _('Move Stock Items'),
-            'count': _('Count Stock Items'),
-            'take': _('Remove From Stock'),
-            'add': _('Add Stock Items'),
-            'delete': _('Delete Stock Items')
+            "move": _("Move Stock Items"),
+            "count": _("Count Stock Items"),
+            "take": _("Remove From Stock"),
+            "add": _("Add Stock Items"),
+            "delete": _("Delete Stock Items"),
         }
 
         self.ajax_form_title = titles[self.stock_action]
-        
+
         # Save list of items!
         self.stock_items = self.get_GET_items()
 
@@ -425,7 +430,7 @@ class StockAdjust(AjaxView, FormMixin):
 
         self.request = request
 
-        self.stock_action = request.POST.get('stock_action', 'invalid').strip().lower()
+        self.stock_action = request.POST.get("stock_action", "invalid").strip().lower()
 
         # Update list of stock items
         self.stock_items = self.get_POST_items()
@@ -433,42 +438,44 @@ class StockAdjust(AjaxView, FormMixin):
         form = self.get_form()
 
         valid = form.is_valid()
-        
+
         for item in self.stock_items:
-            
+
             try:
                 item.new_quantity = Decimal(item.new_quantity)
             except ValueError:
-                item.error = _('Must enter integer value')
+                item.error = _("Must enter integer value")
                 valid = False
                 continue
 
             if item.new_quantity < 0:
-                item.error = _('Quantity must be positive')
+                item.error = _("Quantity must be positive")
                 valid = False
                 continue
 
-            if self.stock_action in ['move', 'take']:
+            if self.stock_action in ["move", "take"]:
 
                 if item.new_quantity > item.quantity:
-                    item.error = _('Quantity must not exceed {x}'.format(x=item.quantity))
+                    item.error = _(
+                        "Quantity must not exceed {x}".format(x=item.quantity)
+                    )
                     valid = False
                     continue
 
-        confirmed = str2bool(request.POST.get('confirm'))
+        confirmed = str2bool(request.POST.get("confirm"))
 
         if not confirmed:
             valid = False
-            form.errors['confirm'] = [_('Confirm stock adjustment')]
+            form.errors["confirm"] = [_("Confirm stock adjustment")]
 
         data = {
-            'form_valid': valid,
+            "form_valid": valid,
         }
 
         if valid:
             result = self.do_action()
 
-            data['success'] = result
+            data["success"] = result
 
             # Special case - Single Stock Item
             # If we deplete the stock item, we MUST redirect to a new view
@@ -478,23 +485,25 @@ class StockAdjust(AjaxView, FormMixin):
 
                 # Was the entire stock taken?
                 item = self.stock_items[0]
-                
+
                 if item.quantity == 0:
                     # Instruct the form to redirect
-                    data['url'] = reverse('stock-index')
+                    data["url"] = reverse("stock-index")
 
         return self.renderJsonResponse(request, form, data=data)
 
     def do_action(self):
         """ Perform stock adjustment action """
 
-        if self.stock_action == 'move':
+        if self.stock_action == "move":
             destination = None
 
-            set_default_loc = str2bool(self.request.POST.get('set_loc', False))
+            set_default_loc = str2bool(self.request.POST.get("set_loc", False))
 
             try:
-                destination = StockLocation.objects.get(id=self.request.POST.get('destination'))
+                destination = StockLocation.objects.get(
+                    id=self.request.POST.get("destination")
+                )
             except StockLocation.DoesNotExist:
                 pass
             except ValueError:
@@ -502,25 +511,25 @@ class StockAdjust(AjaxView, FormMixin):
 
             return self.do_move(destination, set_default_loc)
 
-        elif self.stock_action == 'add':
+        elif self.stock_action == "add":
             return self.do_add()
 
-        elif self.stock_action == 'take':
+        elif self.stock_action == "take":
             return self.do_take()
 
-        elif self.stock_action == 'count':
+        elif self.stock_action == "count":
             return self.do_count()
 
-        elif self.stock_action == 'delete':
+        elif self.stock_action == "delete":
             return self.do_delete()
 
         else:
-            return 'No action performed'
+            return "No action performed"
 
     def do_add(self):
-        
+
         count = 0
-        note = self.request.POST['note']
+        note = self.request.POST["note"]
 
         for item in self.stock_items:
             if item.new_quantity <= 0:
@@ -535,7 +544,7 @@ class StockAdjust(AjaxView, FormMixin):
     def do_take(self):
 
         count = 0
-        note = self.request.POST['note']
+        note = self.request.POST["note"]
 
         for item in self.stock_items:
             if item.new_quantity <= 0:
@@ -548,12 +557,12 @@ class StockAdjust(AjaxView, FormMixin):
         return _("Removed stock from {n} items".format(n=count))
 
     def do_count(self):
-        
+
         count = 0
-        note = self.request.POST['note']
+        note = self.request.POST["note"]
 
         for item in self.stock_items:
-            
+
             item.stocktake(item.new_quantity, self.request.user, notes=note)
 
             count += 1
@@ -565,7 +574,7 @@ class StockAdjust(AjaxView, FormMixin):
 
         count = 0
 
-        note = self.request.POST['note']
+        note = self.request.POST["note"]
 
         for item in self.stock_items:
             # Avoid moving zero quantity
@@ -576,7 +585,7 @@ class StockAdjust(AjaxView, FormMixin):
             if set_loc:
                 item.part.default_location = destination
                 item.part.save()
-            
+
             # Do not move to the same location (unless the quantity is different)
             if destination == item.location and item.new_quantity == item.quantity:
                 continue
@@ -586,12 +595,12 @@ class StockAdjust(AjaxView, FormMixin):
             count += 1
 
         if count == 0:
-            return _('No items were moved')
-        
+            return _("No items were moved")
+
         else:
-            return _('Moved {n} items to {dest}'.format(
-                n=count,
-                dest=destination.pathstring))
+            return _(
+                "Moved {n} items to {dest}".format(n=count, dest=destination.pathstring)
+            )
 
     def do_delete(self):
         """ Delete multiple stock items """
@@ -600,7 +609,7 @@ class StockAdjust(AjaxView, FormMixin):
         # note = self.request.POST['note']
 
         for item in self.stock_items:
-            
+
             # TODO - In the future, StockItems should not be 'deleted'
             # TODO - Instead, they should be marked as "inactive"
 
@@ -618,9 +627,9 @@ class StockItemEdit(AjaxUpdateView):
 
     model = StockItem
     form_class = EditStockItemForm
-    context_object_name = 'item'
-    ajax_template_name = 'modal_form.html'
-    ajax_form_title = _('Edit Stock Item')
+    context_object_name = "item"
+    ajax_template_name = "modal_form.html"
+    ajax_form_title = _("Edit Stock Item")
 
     def get_form(self):
         """ Get form for StockItem editing.
@@ -634,14 +643,14 @@ class StockItemEdit(AjaxUpdateView):
 
         # If the part cannot be purchased, hide the supplier_part field
         if not item.part.purchaseable:
-            form.fields['supplier_part'].widget = HiddenInput()
+            form.fields["supplier_part"].widget = HiddenInput()
         else:
-            query = form.fields['supplier_part'].queryset
+            query = form.fields["supplier_part"].queryset
             query = query.filter(part=item.part.id)
-            form.fields['supplier_part'].queryset = query
+            form.fields["supplier_part"].queryset = query
 
         if not item.part.trackable:
-            form.fields.pop('serial')
+            form.fields.pop("serial")
 
         return form
 
@@ -654,18 +663,18 @@ class StockLocationCreate(AjaxCreateView):
 
     model = StockLocation
     form_class = EditStockLocationForm
-    context_object_name = 'location'
-    ajax_template_name = 'modal_form.html'
-    ajax_form_title = _('Create new Stock Location')
+    context_object_name = "location"
+    ajax_template_name = "modal_form.html"
+    ajax_form_title = _("Create new Stock Location")
 
     def get_initial(self):
         initials = super(StockLocationCreate, self).get_initial().copy()
 
-        loc_id = self.request.GET.get('location', None)
+        loc_id = self.request.GET.get("location", None)
 
         if loc_id:
             try:
-                initials['parent'] = StockLocation.objects.get(pk=loc_id)
+                initials["parent"] = StockLocation.objects.get(pk=loc_id)
             except StockLocation.DoesNotExist:
                 pass
 
@@ -676,8 +685,8 @@ class StockItemSerialize(AjaxUpdateView):
     """ View for manually serializing a StockItem """
 
     model = StockItem
-    ajax_template_name = 'stock/item_serialize.html'
-    ajax_form_title = _('Serialize Stock')
+    ajax_template_name = "stock/item_serialize.html"
+    ajax_form_title = _("Serialize Stock")
     form_class = SerializeStockForm
 
     def get_initial(self):
@@ -686,13 +695,13 @@ class StockItemSerialize(AjaxUpdateView):
 
         item = self.get_object()
 
-        initials['quantity'] = item.quantity
-        initials['destination'] = item.location.pk
+        initials["quantity"] = item.quantity
+        initials["destination"] = item.location.pk
 
         return initials
 
     def get(self, request, *args, **kwargs):
-        
+
         return super().get(request, *args, **kwargs)
 
     def post(self, request, *args, **kwargs):
@@ -701,10 +710,10 @@ class StockItemSerialize(AjaxUpdateView):
 
         item = self.get_object()
 
-        quantity = request.POST.get('quantity', 0)
-        serials = request.POST.get('serial_numbers', '')
-        dest_id = request.POST.get('destination', None)
-        notes = request.POST.get('note', '')
+        quantity = request.POST.get("quantity", 0)
+        serials = request.POST.get("serial_numbers", "")
+        dest_id = request.POST.get("destination", None)
+        notes = request.POST.get("note", "")
         user = request.user
 
         valid = True
@@ -717,18 +726,20 @@ class StockItemSerialize(AjaxUpdateView):
         try:
             numbers = ExtractSerialNumbers(serials, quantity)
         except ValidationError as e:
-            form.errors['serial_numbers'] = e.messages
+            form.errors["serial_numbers"] = e.messages
             valid = False
             numbers = []
-        
+
         if valid:
             try:
-                item.serializeStock(quantity, numbers, user, notes=notes, location=destination)
+                item.serializeStock(
+                    quantity, numbers, user, notes=notes, location=destination
+                )
             except ValidationError as e:
                 messages = e.message_dict
-                
+
                 for k in messages.keys():
-                    if k in ['quantity', 'destination', 'serial_numbers']:
+                    if k in ["quantity", "destination", "serial_numbers"]:
                         form.errors[k] = messages[k]
                     else:
                         form.non_field_errors = messages[k]
@@ -736,7 +747,7 @@ class StockItemSerialize(AjaxUpdateView):
                 valid = False
 
         data = {
-            'form_valid': valid,
+            "form_valid": valid,
         }
 
         return self.renderJsonResponse(request, form, data=data)
@@ -755,9 +766,9 @@ class StockItemCreate(AjaxCreateView):
 
     model = StockItem
     form_class = CreateStockItemForm
-    context_object_name = 'item'
-    ajax_template_name = 'modal_form.html'
-    ajax_form_title = _('Create new Stock Item')
+    context_object_name = "item"
+    ajax_template_name = "modal_form.html"
+    ajax_form_title = _("Create new Stock Item")
 
     def get_form(self):
         """ Get form for StockItem creation.
@@ -768,44 +779,44 @@ class StockItemCreate(AjaxCreateView):
         form = super().get_form()
 
         # If the user has selected a Part, limit choices for SupplierPart
-        if form['part'].value():
-            part_id = form['part'].value()
+        if form["part"].value():
+            part_id = form["part"].value()
 
             try:
                 part = Part.objects.get(id=part_id)
-                
+
                 # Hide the 'part' field (as a valid part is selected)
-                form.fields['part'].widget = HiddenInput()
+                form.fields["part"].widget = HiddenInput()
 
                 # trackable parts get special consideration
                 if part.trackable:
-                    form.fields['delete_on_deplete'].widget = HiddenInput()
-                    form.fields['delete_on_deplete'].initial = False
+                    form.fields["delete_on_deplete"].widget = HiddenInput()
+                    form.fields["delete_on_deplete"].initial = False
                 else:
-                    form.fields.pop('serial_numbers')
+                    form.fields.pop("serial_numbers")
 
                 # If the part is NOT purchaseable, hide the supplier_part field
                 if not part.purchaseable:
-                    form.fields['supplier_part'].widget = HiddenInput()
+                    form.fields["supplier_part"].widget = HiddenInput()
                 else:
                     # Pre-select the allowable SupplierPart options
-                    parts = form.fields['supplier_part'].queryset
+                    parts = form.fields["supplier_part"].queryset
                     parts = parts.filter(part=part.id)
 
-                    form.fields['supplier_part'].queryset = parts
+                    form.fields["supplier_part"].queryset = parts
 
                     # If there is one (and only one) supplier part available, pre-select it
                     all_parts = parts.all()
                     if len(all_parts) == 1:
 
                         # TODO - This does NOT work for some reason? Ref build.views.BuildItemCreate
-                        form.fields['supplier_part'].initial = all_parts[0].id
+                        form.fields["supplier_part"].initial = all_parts[0].id
 
             except Part.DoesNotExist:
                 pass
 
         # Otherwise if the user has selected a SupplierPart, we know what Part they meant!
-        elif form['supplier_part'].value() is not None:
+        elif form["supplier_part"].value() is not None:
             pass
 
         return form
@@ -815,7 +826,7 @@ class StockItemCreate(AjaxCreateView):
         """
 
         # Is the client attempting to copy an existing stock item?
-        item_to_copy = self.request.GET.get('copy', None)
+        item_to_copy = self.request.GET.get("copy", None)
 
         if item_to_copy:
             try:
@@ -828,9 +839,9 @@ class StockItemCreate(AjaxCreateView):
         else:
             initials = super(StockItemCreate, self).get_initial().copy()
 
-        part_id = self.request.GET.get('part', None)
-        loc_id = self.request.GET.get('location', None)
-        sup_part_id = self.request.GET.get('supplier_part', None)
+        part_id = self.request.GET.get("part", None)
+        loc_id = self.request.GET.get("location", None)
+        sup_part_id = self.request.GET.get("supplier_part", None)
 
         part = None
         location = None
@@ -840,9 +851,9 @@ class StockItemCreate(AjaxCreateView):
         if part_id:
             try:
                 part = Part.objects.get(pk=part_id)
-                initials['part'] = part
-                initials['location'] = part.get_default_location()
-                initials['supplier_part'] = part.default_supplier
+                initials["part"] = part
+                initials["location"] = part.get_default_location()
+                initials["supplier_part"] = part.default_supplier
             except (ValueError, Part.DoesNotExist):
                 pass
 
@@ -853,7 +864,7 @@ class StockItemCreate(AjaxCreateView):
                 supplier_part = SupplierPart.objects.get(pk=sup_part_id)
 
                 if part is None or supplier_part.part == part:
-                    initials['supplier_part'] = supplier_part
+                    initials["supplier_part"] = supplier_part
 
             except (ValueError, SupplierPart.DoesNotExist):
                 pass
@@ -862,7 +873,7 @@ class StockItemCreate(AjaxCreateView):
         if loc_id:
             try:
                 location = StockLocation.objects.get(pk=loc_id)
-                initials['location'] = location
+                initials["location"] = location
             except (ValueError, StockLocation.DoesNotExist):
                 pass
 
@@ -881,22 +892,22 @@ class StockItemCreate(AjaxCreateView):
         valid = form.is_valid()
 
         if valid:
-            part_id = form['part'].value()
+            part_id = form["part"].value()
             try:
                 part = Part.objects.get(id=part_id)
-                quantity = Decimal(form['quantity'].value())
+                quantity = Decimal(form["quantity"].value())
             except (Part.DoesNotExist, ValueError, InvalidOperation):
                 part = None
                 quantity = 1
                 valid = False
-                form.errors['quantity'] = [_('Invalid quantity')]
+                form.errors["quantity"] = [_("Invalid quantity")]
 
             if part is None:
-                form.errors['part'] = [_('Invalid part selection')]
+                form.errors["part"] = [_("Invalid part selection")]
             else:
                 # A trackable part must provide serial numbesr
                 if part.trackable:
-                    sn = request.POST.get('serial_numbers', '')
+                    sn = request.POST.get("serial_numbers", "")
 
                     sn = str(sn).strip()
 
@@ -913,7 +924,13 @@ class StockItemCreate(AjaxCreateView):
 
                             if len(existing) > 0:
                                 exists = ",".join([str(x) for x in existing])
-                                form.errors['serial_numbers'] = [_('The following serial numbers already exist: ({sn})'.format(sn=exists))]
+                                form.errors["serial_numbers"] = [
+                                    _(
+                                        "The following serial numbers already exist: ({sn})".format(
+                                            sn=exists
+                                        )
+                                    )
+                                ]
                                 valid = False
 
                             else:
@@ -929,21 +946,23 @@ class StockItemCreate(AjaxCreateView):
                                         part=part,
                                         quantity=1,
                                         serial=serial,
-                                        supplier_part=form_data.get('supplier_part'),
-                                        location=form_data.get('location'),
-                                        batch=form_data.get('batch'),
+                                        supplier_part=form_data.get("supplier_part"),
+                                        location=form_data.get("location"),
+                                        batch=form_data.get("batch"),
                                         delete_on_deplete=False,
-                                        status=form_data.get('status'),
-                                        URL=form_data.get('URL'),
+                                        status=form_data.get("status"),
+                                        URL=form_data.get("URL"),
                                     )
 
                                     item.save(user=request.user)
 
-                                data['success'] = _('Created {n} new stock items'.format(n=len(serials)))
+                                data["success"] = _(
+                                    "Created {n} new stock items".format(n=len(serials))
+                                )
                                 valid = True
 
                         except ValidationError as e:
-                            form.errors['serial_numbers'] = e.messages
+                            form.errors["serial_numbers"] = e.messages
                             valid = False
 
                     else:
@@ -954,24 +973,24 @@ class StockItemCreate(AjaxCreateView):
                         item = form.save(commit=False)
                         item.save(user=request.user)
 
-                        data['pk'] = item.pk
-                        data['url'] = item.get_absolute_url()
-                        data['success'] = _("Created new stock item")
+                        data["pk"] = item.pk
+                        data["url"] = item.get_absolute_url()
+                        data["success"] = _("Created new stock item")
 
                 else:  # Referenced Part object is not marked as "trackable"
                     # For non-serialized items, simply save the form.
                     # We need to call _post_clean() here because it is prevented in the form implementation
                     form.clean()
                     form._post_clean()
-                    
+
                     item = form.save(commit=False)
                     item.save(user=request.user)
 
-                    data['pk'] = item.pk
-                    data['url'] = item.get_absolute_url()
-                    data['success'] = _("Created new stock item")
+                    data["pk"] = item.pk
+                    data["url"] = item.get_absolute_url()
+                    data["success"] = _("Created new stock item")
 
-        data['form_valid'] = valid
+        data["form_valid"] = valid
 
         return self.renderJsonResponse(request, form, data=data)
 
@@ -983,10 +1002,10 @@ class StockLocationDelete(AjaxDeleteView):
     """
 
     model = StockLocation
-    success_url = '/stock'
-    ajax_template_name = 'stock/location_delete.html'
-    context_object_name = 'location'
-    ajax_form_title = _('Delete Stock Location')
+    success_url = "/stock"
+    ajax_template_name = "stock/location_delete.html"
+    context_object_name = "location"
+    ajax_form_title = _("Delete Stock Location")
 
 
 class StockItemDelete(AjaxDeleteView):
@@ -996,10 +1015,10 @@ class StockItemDelete(AjaxDeleteView):
     """
 
     model = StockItem
-    success_url = '/stock/'
-    ajax_template_name = 'stock/item_delete.html'
-    context_object_name = 'item'
-    ajax_form_title = _('Delete Stock Item')
+    success_url = "/stock/"
+    ajax_template_name = "stock/item_delete.html"
+    context_object_name = "item"
+    ajax_form_title = _("Delete Stock Item")
 
 
 class StockItemTrackingDelete(AjaxDeleteView):
@@ -1009,8 +1028,8 @@ class StockItemTrackingDelete(AjaxDeleteView):
     """
 
     model = StockItemTracking
-    ajax_template_name = 'stock/tracking_delete.html'
-    ajax_form_title = _('Delete Stock Tracking Entry')
+    ajax_template_name = "stock/tracking_delete.html"
+    ajax_form_title = _("Delete Stock Tracking Entry")
 
 
 class StockTrackingIndex(ListView):
@@ -1019,15 +1038,15 @@ class StockTrackingIndex(ListView):
     """
 
     model = StockItemTracking
-    template_name = 'stock/tracking.html'
-    context_object_name = 'items'
+    template_name = "stock/tracking.html"
+    context_object_name = "items"
 
 
 class StockItemTrackingEdit(AjaxUpdateView):
     """ View for editing a StockItemTracking object """
 
     model = StockItemTracking
-    ajax_form_title = _('Edit Stock Tracking Entry')
+    ajax_form_title = _("Edit Stock Tracking Entry")
     form_class = TrackingEntryForm
 
 
@@ -1047,7 +1066,7 @@ class StockItemTrackingCreate(AjaxCreateView):
         valid = False
 
         if self.form.is_valid():
-            stock_id = self.kwargs['pk']
+            stock_id = self.kwargs["pk"]
 
             if stock_id:
                 try:
@@ -1068,8 +1087,6 @@ class StockItemTrackingCreate(AjaxCreateView):
                 except (StockItem.DoesNotExist, ValueError):
                     pass
 
-        data = {
-            'form_valid': valid
-        }
+        data = {"form_valid": valid}
 
         return self.renderJsonResponse(request, self.form, data=data)

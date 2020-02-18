@@ -6,10 +6,10 @@ These models are 'generic' and do not fit a particular business logic object.
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils.translation import ugettext as _
-from django.core.validators import MinValueValidator, MaxValueValidator
-from django.core.exceptions import ValidationError
 
 
 class InvenTreeSetting(models.Model):
@@ -62,15 +62,24 @@ class InvenTreeSetting(models.Model):
                 setting = InvenTreeSetting(key=key)
             else:
                 return
-            
+
         setting.value = value
         setting.save()
 
-    key = models.CharField(max_length=50, blank=False, unique=True, help_text=_('Settings key (must be unique - case insensitive'))
+    key = models.CharField(
+        max_length=50,
+        blank=False,
+        unique=True,
+        help_text=_("Settings key (must be unique - case insensitive"),
+    )
 
-    value = models.CharField(max_length=200, blank=True, unique=False, help_text=_('Settings value'))
+    value = models.CharField(
+        max_length=200, blank=True, unique=False, help_text=_("Settings value")
+    )
 
-    description = models.CharField(max_length=200, blank=True, unique=False, help_text=_('Settings description'))
+    description = models.CharField(
+        max_length=200, blank=True, unique=False, help_text=_("Settings description")
+    )
 
     def validate_unique(self, exclude=None):
         """ Ensure that the key:value pair is unique.
@@ -81,9 +90,11 @@ class InvenTreeSetting(models.Model):
         super().validate_unique(exclude)
 
         try:
-            setting = InvenTreeSetting.objects.exclude(id=self.id).filter(key__iexact=self.key)
+            setting = InvenTreeSetting.objects.exclude(id=self.id).filter(
+                key__iexact=self.key
+            )
             if setting.exists():
-                raise ValidationError({'key': _('Key string must be unique')})
+                raise ValidationError({"key": _("Key string must be unique")})
         except InvenTreeSetting.DoesNotExist:
             pass
 
@@ -104,30 +115,42 @@ class Currency(models.Model):
 
     """
 
-    symbol = models.CharField(max_length=10, blank=False, unique=False, help_text=_('Currency Symbol e.g. $'))
+    symbol = models.CharField(
+        max_length=10, blank=False, unique=False, help_text=_("Currency Symbol e.g. $")
+    )
 
-    suffix = models.CharField(max_length=10, blank=False, unique=True, help_text=_('Currency Suffix e.g. AUD'))
+    suffix = models.CharField(
+        max_length=10, blank=False, unique=True, help_text=_("Currency Suffix e.g. AUD")
+    )
 
-    description = models.CharField(max_length=100, blank=False, help_text=_('Currency Description'))
+    description = models.CharField(
+        max_length=100, blank=False, help_text=_("Currency Description")
+    )
 
-    value = models.DecimalField(default=1.0, max_digits=10, decimal_places=5, validators=[MinValueValidator(0.00001), MaxValueValidator(100000)], help_text=_('Currency Value'))
+    value = models.DecimalField(
+        default=1.0,
+        max_digits=10,
+        decimal_places=5,
+        validators=[MinValueValidator(0.00001), MaxValueValidator(100000)],
+        help_text=_("Currency Value"),
+    )
 
-    base = models.BooleanField(default=False, help_text=_('Use this currency as the base currency'))
+    base = models.BooleanField(
+        default=False, help_text=_("Use this currency as the base currency")
+    )
 
     class Meta:
-        verbose_name_plural = 'Currencies'
+        verbose_name_plural = "Currencies"
 
     def __str__(self):
         """ Format string for currency representation """
         s = "{sym} {suf} - {desc}".format(
-            sym=self.symbol,
-            suf=self.suffix,
-            desc=self.description
+            sym=self.symbol, suf=self.suffix, desc=self.description
         )
 
         if self.base:
             s += " (Base)"
-        
+
         else:
             s += " = {v}".format(v=self.value)
 

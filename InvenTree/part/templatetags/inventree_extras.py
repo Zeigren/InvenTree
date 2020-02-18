@@ -3,10 +3,11 @@ over and above the built-in Django tags.
 """
 
 from django import template
-from InvenTree import version
-from InvenTree.helpers import decimal2string
 
 from common.models import InvenTreeSetting
+
+from InvenTree import version
+from InvenTree.helpers import decimal2string
 
 register = template.Library()
 
@@ -22,7 +23,7 @@ def decimal(x, *args, **kwargs):
 def inrange(n, *args, **kwargs):
     """ Return range(n) for iterating through a numeric quantity """
     return range(n)
-    
+
 
 @register.simple_tag()
 def multiply(x, y, *args, **kwargs):
@@ -34,7 +35,7 @@ def multiply(x, y, *args, **kwargs):
 def add(x, y, *args, **kwargs):
     """ Add two numbers together """
     return x + y
-    
+
 
 @register.simple_tag()
 def part_allocation_count(build, part, *args, **kwargs):
