@@ -17,6 +17,7 @@ database:
   #PASSWORD: inventree_password
   #HOST: ''
   #PORT: ''
+  #CONN_MAX_AGE: 500
 
 # Select default system language (default is 'en-us')
 language: en-us
@@ -27,6 +28,7 @@ debug: True
 # Allowed hosts (see ALLOWED_HOSTS in Django settings documentation)
 # A list of strings representing the host/domain names that this Django site can serve.
 # Default behaviour is to allow all hosts (THIS IS NOT SECURE!)
+# Production example '<your app URL without the https:// prefix>, 127.0.0.1'
 allowed_hosts:
   - '*'
 
@@ -68,3 +70,7 @@ log_queries: False
 #backup_dir: '/home/inventree/backup/'
 
 #anonymous_user_name: AnonymousUser
+
+# Set cache location for production
+# https://docs.djangoproject.com/en/2.2/topics/cache/#memcached
+#cache_location: '127.0.0.1:11211'
