@@ -5,7 +5,7 @@ Performs initial setup functions.
 - Copies config template file (if a config file does not already exist)
 """
 
-import random
+import secrets
 import string
 import os
 import sys
@@ -30,7 +30,7 @@ def generate_key(length=50):
     """
 
     options = string.digits + string.ascii_letters + string.punctuation
-    key = ''.join([random.choice(options) for i in range(length)])
+    key = ''.join([secrets.choice(options) for i in range(length)])
     return key
 
 

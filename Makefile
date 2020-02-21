@@ -22,7 +22,7 @@ static:
 
 # Install all required packages
 install:
-	pip3 install -U -r requirements.txt
+	pip3 install -U -r dev_requirements.txt
 	cd InvenTree && python3 setup.py
 
 # Create a superuser account
@@ -71,5 +71,14 @@ docs:
 backup:
 	cd InvenTree && python3 manage.py dbbackup
 	cd InvenTree && python3 manage.py mediabackup
+
+deploy:
+	pip3 install -U -r prod_requirements.txt
+	cd InvenTree && python3 setup.py
+	translate
+	migrate
+	static
+	cd InvenTree && python3 manage.py check --deploy
+	clean
 
 .PHONY: clean migrate superuser install mysql postgresql translate static style test coverage docreqs docs backup update

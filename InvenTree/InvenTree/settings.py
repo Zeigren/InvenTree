@@ -220,18 +220,31 @@ else:
             'NAME': os.path.join(BASE_DIR, 'inventree_db.sqlite3'),
         }
 
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-    },
-    'qr-code': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'qr-code-cache',
-        'TIMEOUT': 3600
-    }
-}
+# Change cache for production
 
-QR_CODE_CACHE_ALIAS = 'qr-code'
+if DEBUG is False:
+    CACHE_LOCATION = CONFIG.get('cache_location', '127.0.0.1:11211')
+    QR_CODE_CACHE_ALIAS = 'default'
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.memcached.PyLibMCCache',
+            'LOCATION': CACHE_LOCATION,
+        }
+    }
+    pass
+else:
+    QR_CODE_CACHE_ALIAS = 'qr-code'
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        },
+        'qr-code': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'qr-code-cache',
+            'TIMEOUT': 3600
+        }
+    }
+    pass
 
 # Password validation
 # https://docs.djangoproject.com/en/1.10/ref/settings/#auth-password-validators
@@ -324,3 +337,8 @@ DBBACKUP_STORAGE = 'django.core.files.storage.FileSystemStorage'
 DBBACKUP_STORAGE_OPTIONS = {
     'location': CONFIG.get('backup_dir', tempfile.gettempdir()),
 }
+
+# Cache sessions using Memcached in production
+# https://docs.djangoproject.com/en/2.2/topics/http/sessions/#cached-sessions-backend
+if DEBUG is False:
+    SESSION_ENGINE = "django.contrib.sessions.backends.cache"
